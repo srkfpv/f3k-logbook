@@ -78,11 +78,30 @@ function saveLocal(){localStorage.setItem('f3kFlights',JSON.stringify(flights));
 function loadLocal(){try{flights=JSON.parse(localStorage.getItem('f3kFlights')||'[]');selected=new Set(flights.map(f=>f.file));}catch{flights=[];selected=new Set();}}
 function activeFlights(){const min=+$('minDuration').value; return flights.filter(f=>selected.has(f.file)&&f.duration>=min);}
 function applyFilters(){const min=+$('minDuration').value; selected=new Set(flights.filter(f=>f.duration>=min).map(f=>f.file)); renderList();}
-function resetViewForMode(){
-  const a=activeFlights().length?activeFlights():flights; if(!a.length){view={x0:0,x1:360,y0:0,y1:90};return;}
-  if(mode==='scatter'){view={x0:Math.max(0,min(a,'launchAlt')-5),x1:max(a,'launchAlt')+8,y0:0,y1:max(a,'duration')+20};return;}
-  if(mode==='launch'||mode==='duration'||mode==='gain'){view={x0:0,x1:Math.max(10,a.length+1),y0:0,y1:(mode==='duration'?max(a,'duration'):mode==='gain'?Math.max(10,...a.map(f=>f.maxAlt-f.launchAlt)):max(a,'launchAlt'))*1.15};return;}
-  view={x0:0,x1:Math.max(60,...a.map(f=>f.duration))*1.05,y0:0,y1:Math.max(30,...a.map(f=>f.maxAlt))*1.1};
+function fullViewForMode(){
+  const a=activeFlights().length?activeFlights():flights;
+  if(!a.length) return {x0:0,x1:360,y0:0,y1:90};
+  if(mode==='scatter') return {x0:Math.max(0,min(a,'launchAlt')-5),x1:max(a,'launchAlt')+8,y0:0,y1:max(a,'duration')+20};
+  if(mode==='launch'||mode==='duration'||mode==='gain'){
+    const top=(mode==='duration'?max(a,'duration'):mode==='gain'?Math.max(10,...a.map(f=>f.maxAlt-f.launchAlt)):max(a,'launchAlt'))*1.15;
+    return {x0:0,x1:Math.max(10,a.length+1),y0:0,y1:top};
+  }
+  return {x0:0,x1:Math.max(60,...a.map(f=>f.duration))*1.05,y0:0,y1:Math.max(30,...a.map(f=>f.maxAlt))*1.1};
+}
+function resetViewForMode(){ view=fullViewForMode(); }
+function clampViewX(v){
+  const f=fullViewForMode();
+  let x0=v.x0, x1=v.x1;
+  const fullW=f.x1-f.x0;
+  let w=x1-x0;
+  const minW=Math.max(fullW/80, 1);
+  if(w<minW){ const c=(x0+x1)/2; w=minW; x0=c-w/2; x1=c+w/2; }
+  if(w>=fullW){ x0=f.x0; x1=f.x1; }
+  else{
+    if(x0<f.x0){ x1+=f.x0-x0; x0=f.x0; }
+    if(x1>f.x1){ x0-=x1-f.x1; x1=f.x1; }
+  }
+  return {x0,x1,y0:f.y0,y1:f.y1};
 }
 function min(a,k){return Math.min(...a.map(x=>x[k]));} function max(a,k){return Math.max(...a.map(x=>x[k]));}
 function fmtTime(s){s=Math.round(s||0); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
@@ -143,8 +162,50 @@ function drawScatter(svg,a){
 function showTip(ev,f){const rect=chart.getBoundingClientRect(); tip.classList.remove('hidden'); tip.style.left=(ev.clientX-rect.left+16)+'px'; tip.style.top=(ev.clientY-rect.top+16)+'px'; tip.innerHTML=`<b>${f.time} · ${f.file}</b><br>Lnh ${f.launchAlt} m · Max ${f.maxAlt} m<br>Gain ${Math.round(f.maxAlt-f.launchAlt)} m · Dur ${fmtTime(f.duration)}`;}
 function hideTip(){tip.classList.add('hidden')}
 function addChartEvents(){
-  chart.onwheel=e=>{e.preventDefault(); const r=chart.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width*W, py=(e.clientY-r.top)/r.height*H; const cx=invx(px), cy=invy(py); const z=e.deltaY>0?1.18:.85; view={x0:cx-(cx-view.x0)*z,x1:cx+(view.x1-cx)*z,y0:cy-(cy-view.y0)*z,y1:cy+(view.y1-cy)*z}; renderChart();};
-  chart.onpointerdown=e=>{const r=chart.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H; if(e.shiftKey){brush={x,y};} else {drag={x,y,v:{...view}};} chart.setPointerCapture(e.pointerId);};
-  chart.onpointermove=e=>{if(!drag&&!brush)return; const r=chart.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H; if(drag){const dx=invx(drag.x)-invx(x), dy=invy(drag.y)-invy(y); view={x0:drag.v.x0+dx,x1:drag.v.x1+dx,y0:drag.v.y0+dy,y1:drag.v.y1+dy}; renderChart();} else if(brush){renderChart(); const rect=document.createElementNS('http://www.w3.org/2000/svg','rect'); rect.setAttribute('x',Math.min(brush.x,x)); rect.setAttribute('y',Math.min(brush.y,y)); rect.setAttribute('width',Math.abs(x-brush.x)); rect.setAttribute('height',Math.abs(y-brush.y)); rect.setAttribute('class','brush'); chart.appendChild(rect);}};
-  chart.onpointerup=e=>{if(brush){const r=chart.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H; if(Math.abs(x-brush.x)>10&&Math.abs(y-brush.y)>10){view={x0:Math.min(invx(brush.x),invx(x)),x1:Math.max(invx(brush.x),invx(x)),y0:Math.min(invy(brush.y),invy(y)),y1:Math.max(invy(brush.y),invy(y))};} brush=null; renderChart();} drag=null;};
+  chart.onwheel=e=>{
+    e.preventDefault();
+    const r=chart.getBoundingClientRect();
+    const px=(e.clientX-r.left)/r.width*W;
+    const cx=invx(px);
+    const z=e.deltaY>0?1.18:.85;
+    view=clampViewX({x0:cx-(cx-view.x0)*z,x1:cx+(view.x1-cx)*z,y0:view.y0,y1:view.y1});
+    renderChart();
+  };
+  chart.onpointerdown=e=>{
+    const r=chart.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+    if(e.shiftKey){ brush={x,y}; }
+    else { drag={x,y,v:{...view}}; }
+    chart.setPointerCapture(e.pointerId);
+  };
+  chart.onpointermove=e=>{
+    if(!drag&&!brush) return;
+    const r=chart.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+    if(drag){
+      const dx=invx(drag.x)-invx(x);
+      view=clampViewX({x0:drag.v.x0+dx,x1:drag.v.x1+dx,y0:drag.v.y0,y1:drag.v.y1});
+      renderChart();
+    } else if(brush){
+      renderChart();
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',Math.min(brush.x,x));
+      rect.setAttribute('y',M.t);
+      rect.setAttribute('width',Math.abs(x-brush.x));
+      rect.setAttribute('height',H-M.t-M.b);
+      rect.setAttribute('class','brush');
+      chart.appendChild(rect);
+    }
+  };
+  chart.onpointerup=e=>{
+    if(brush){
+      const r=chart.getBoundingClientRect();
+      const x=(e.clientX-r.left)/r.width*W;
+      if(Math.abs(x-brush.x)>10){
+        view=clampViewX({x0:Math.min(invx(brush.x),invx(x)),x1:Math.max(invx(brush.x),invx(x)),y0:view.y0,y1:view.y1});
+      }
+      brush=null; renderChart();
+    }
+    drag=null;
+  };
 }
