@@ -1,8 +1,8 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2025,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
-const BASE_LINE='#4c88ff';
-const RECORD_COLORS={maxAlt:'#20d7ff',launchAlt:'#7c5cff',gain:'#00e0a4',duration:'#ffc04d'};
+const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const BASE_LINE='#111111';
+const RECORD_COLORS={maxAlt:'#7f1d1d',launchAlt:'#8f1d1d',gain:'#7f1d1d',duration:'#8f1d1d'};
 const MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const LOG_DIR='logs/';
 const M={l:42,r:12,t:14,b:30};
@@ -11,7 +11,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-wor
 init();
 async function init(){bindUI();loadTheme();showLoad(true);await loadRepoLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
 function bindUI(){
-  $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');drawChart();};
+  $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'◑':'◐';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
   $('allTimeBtn').onclick=()=>{state.allTime=true;state.selDates.clear();state.single=null;fitView();renderAll();};
   $('clearDatesBtn').onclick=()=>{state.selDates.clear();state.allTime=true;state.single=null;fitView();renderAll();};
@@ -22,16 +22,16 @@ function bindUI(){
   frame.addEventListener('pointerdown',pointerDown); frame.addEventListener('pointermove',pointerMove); frame.addEventListener('pointerup',pointerUp); frame.addEventListener('pointercancel',pointerUp); frame.addEventListener('wheel',wheelZoom,{passive:false});
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
-function loadTheme(){document.documentElement.classList.toggle('light',localStorage.getItem('f3kTheme')==='light');}
+function loadTheme(){document.documentElement.classList.toggle('light',localStorage.getItem('f3kTheme')==='light');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'◑':'◐';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
 function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
 async function loadRepoLogs(){
   try{const txt=await fetch(LOG_DIR+'index.csv',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();}); const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6); const out=[];
     for(const r of rows){const [date,time,lnh,maxAlt,duration,file]=r; try{const csv=await fetch(LOG_DIR+file,{cache:'no-store'}).then(x=>x.ok?x.text():''); const pts=parseCsv(csv); if(pts.length){const yr=yearFromFile(file); out.push({date,time,year:yr,file,launchAlt:+lnh,maxAlt:+maxAlt,duration:+duration,gain:+maxAlt-+lnh,pts});}}catch{}}
-    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=2025; const months=[...new Set(state.flights.map(f=>+f.date.split('/')[1]))]; state.openMonth=months.includes(5)?5:(months[0]||1); fitView();
+    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=2026; const months=[...new Set(state.flights.map(f=>+f.date.split('/')[1]))]; state.openMonth=months.includes(5)?5:(months[0]||1); fitView();
   }catch(e){state.flights=[];}
 }
-function yearFromFile(file){return 2025;}
+function yearFromFile(file){return 2026;}
 function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} function timeNum(t){return Number(String(t).replace(/\D/g,''))||0;}
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
 function flightsBase(){let a=state.flights; if(!state.allTime&&state.selDates.size) a=a.filter(f=>state.selDates.has(f.date)); return a;}
@@ -75,7 +75,7 @@ function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(s
 function colorForFlight(f){
   if(state.single && f.file===state.single.file){
     const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[state.focus];
-    return key?RECORD_COLORS[key]:css('--cyan');
+    return key?RECORD_COLORS[key]:BASE_LINE;
   }
   const base=flightsBase();
   if(best(base,'maxAlt')?.file===f.file) return RECORD_COLORS.maxAlt;
@@ -86,7 +86,7 @@ function colorForFlight(f){
 }
 function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b);}
 function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5); ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5); ctx.stroke();}
-function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.78; ctx.lineWidth=single?2.4:1.7; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}
+function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}
 function ticks(a,b,n){const span=b-a;if(span<=0)return[a];const raw=span/n, mag=10**Math.floor(Math.log10(raw)), step=(raw/mag>=5?5:raw/mag>=2?2:1)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-6;v+=step)out.push(v);return out;}
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function pointerDown(e){frame.setPointerCapture(e.pointerId); const p=point(e); state.pointers.set(e.pointerId,p); if(state.pointers.size===1) state.drag={x:p.x,x0:state.x0,x1:state.x1}; if(state.pointers.size===2){const ps=[...state.pointers.values()], dist=Math.abs(ps[0].x-ps[1].x), mid=(ps[0].x+ps[1].x)/2; state.pinch={dist,mid,x0:state.x0,x1:state.x1}; state.drag=null;}}
