@@ -24,7 +24,7 @@ function bindUI(){
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
-function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);['dateLoading','summaryLoading'].forEach(id=>$(id)?.classList.toggle('hidden',!v));$('infoLine')?.classList.toggle('loadingState',v);$('recordGrid')?.classList.toggle('loadingState',v);}
+function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
 function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
 async function loadRepoLogs(){
   try{const txt=await fetch(LOG_DIR+'index.csv',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();}); const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6); const out=[];

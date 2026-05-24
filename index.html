@@ -24,7 +24,6 @@
         <span><b>DATE</b><em id="dateLabel">ALL TIME</em></span>
         <i id="dateChevron">▾</i>
       </button>
-      <div id="dateLoading" class="miniLoader hidden"><i></i></div>
       <div id="dateBody" class="dateBody hidden">
         <div class="dateToolbar">
           <button id="allTimeBtn" class="chip active">ALL TIME</button>
@@ -42,15 +41,14 @@
 
     <section class="panel summaryPanel">
       <div class="sectionKicker">SUMMARY</div>
-      <div id="summaryLoading" class="miniLoader hidden"><i></i></div>
       <div class="infoLine" id="infoLine">
         <div><span>FLIGHTS</span><b id="mFlights">0</b></div>
         <div><span>TOTAL TIME</span><b id="mTime">00:00:00</b></div>
       </div>
       <div class="recordGrid" id="recordGrid">
         <button class="recordCard" data-focus="maxAlt"><span>MAX ALT</span><b id="mMaxAlt">0 m</b></button>
-        <button class="recordCard" data-focus="launch"><span>LAUNCH</span><b id="mLaunch">0 m</b></button>
-        <button class="recordCard" data-focus="gain"><span>GAIN</span><b id="mGain">0 m</b></button>
+        <button class="recordCard" data-focus="launch"><span>MAX LAUNCH</span><b id="mLaunch">0 m</b></button>
+        <button class="recordCard" data-focus="gain"><span>MAX GAIN</span><b id="mGain">0 m</b></button>
         <button class="recordCard" data-focus="longest"><span>LONGEST</span><b id="mLongest">00:00</b></button>
       </div>
     </section>
@@ -84,7 +82,7 @@
       </section>
     </section>
 
-    <footer class="footer">LOGBOOK by SRK.FPV</footer>
+    <footer class="footer">F3K LOGBOOK by SRK.FPV</footer>
   </main>
   <script src="app.js"></script>
 </body>
