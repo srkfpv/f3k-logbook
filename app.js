@@ -11,7 +11,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-wor
 init();
 async function init(){bindUI();loadTheme();showLoad(true);await loadRepoLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
 function bindUI(){
-  $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'◑':'◐';drawChart();};
+  $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
   $('allTimeBtn').onclick=()=>{state.allTime=true;state.selDates.clear();state.single=null;fitView();renderAll();};
   $('clearDatesBtn').onclick=()=>{state.selDates.clear();state.allTime=true;state.single=null;fitView();renderAll();};
@@ -22,7 +22,7 @@ function bindUI(){
   frame.addEventListener('pointerdown',pointerDown); frame.addEventListener('pointermove',pointerMove); frame.addEventListener('pointerup',pointerUp); frame.addEventListener('pointercancel',pointerUp); frame.addEventListener('wheel',wheelZoom,{passive:false});
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
-function loadTheme(){document.documentElement.classList.toggle('light',localStorage.getItem('f3kTheme')==='light');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'◑':'◐';}
+function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
 function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
 async function loadRepoLogs(){
@@ -60,11 +60,12 @@ function renderTable(){
   });
   rows.forEach(f=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${Math.round(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}">${fmtTime(f.duration)}</td>`;
+    tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${fmtGain(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}">${fmtTime(f.duration)}</td>`;
     tr.onclick=()=>{state.single=f;state.focus=null;setActiveRecord(null);setMode('charts');fitView();renderAll();};
     tb.appendChild(tr);
   });
 }
+function fmtGain(v){v=Math.round(v||0);return v===0?'–':(v>0?'+'+v:String(v));}
 function fmtTime(s){s=Math.round(s||0);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} function fmtHMS(s){s=Math.round(s||0);return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
 function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const dur=Math.max(60,...a.map(f=>f.duration)); const maxY=Math.max(30,...(state.single?a:base).map(f=>f.maxAlt))*1.08; state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10; if(redraw)drawChart();}
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
