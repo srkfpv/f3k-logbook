@@ -5,7 +5,15 @@ let drag=null, brush=null;
 const colors=['#1d64d8','#16844a','#b26b00','#9333ea','#dc2626','#0891b2','#4f46e5','#be123c','#15803d','#a16207'];
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').catch(()=>{});}
-loadLocal(); renderAll();
+boot();
+
+async function boot(){
+  const ok=await loadBundledLogs();
+  if(!ok){ loadLocal(); setStatus(flights.length ? 'Loaded saved local logs.' : 'No bundled logs found. Import CSV files.'); }
+  resetViewForMode();
+  renderAll();
+}
+function setStatus(t){ const el=$('dataStatus'); if(el) el.textContent=t; }
 
 $('fileInput').addEventListener('change',async e=>{await importFiles([...e.target.files]); e.target.value='';});
 $('mode').addEventListener('change',e=>{mode=e.target.value; resetViewForMode(); renderAll();});
@@ -15,6 +23,7 @@ $('showAll').onclick=()=>{selected=new Set(flights.map(f=>f.file)); renderAll();
 $('showTopAlt').onclick=()=>{const a=[...flights].sort((a,b)=>b.maxAlt-a.maxAlt).slice(0,5); selected=new Set(a.map(f=>f.file)); renderAll();};
 $('showLongest').onclick=()=>{const a=[...flights].sort((a,b)=>b.duration-a.duration).slice(0,5); selected=new Set(a.map(f=>f.file)); renderAll();};
 $('resetView').onclick=()=>{resetViewForMode(); renderAll();};
+$('reloadRepo').onclick=async()=>{ if(await loadBundledLogs()){ resetViewForMode(); renderAll(); } };
 $('clearData').onclick=()=>{if(confirm('Clear locally stored logs?')){localStorage.removeItem('f3kFlights');flights=[];selected=new Set();renderAll();}};
 $('exportSvg').onclick=()=>{const s=new XMLSerializer().serializeToString(chart); const blob=new Blob([s],{type:'image/svg+xml'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='f3k-chart.svg'; a.click(); URL.revokeObjectURL(a.href);};
 
@@ -22,17 +31,43 @@ async function importFiles(files){
   const csvs={}; let indexText=null;
   for(const f of files){ const txt=await f.text(); if(f.name.toLowerCase()==='index.csv') indexText=txt; else if(f.name.toLowerCase().endsWith('.csv')) csvs[f.name]=txt; }
   if(!indexText){ alert('Wybierz index.csv razem z plikami lotów CSV.'); return; }
-  const rows=indexText.trim().split(/\r?\n/).filter(Boolean).map(line=>line.split(','));
+  const out=parseIndexWithCsvs(indexText,csvs);
+  if(!out.length){ alert('Nie udało się dopasować lotów. Upewnij się, że wybrałeś index.csv i pliki f*.csv.'); return; }
+  flights=out; selected=new Set(flights.map(f=>f.file));
+  saveLocal(); setStatus('Imported '+flights.length+' flights from local files.'); resetViewForMode(); renderAll();
+}
+async function loadBundledLogs(){
+  try{
+    setStatus('Loading bundled logs from GitHub…');
+    const indexText=await fetchTextNoCache('./logs/index.csv');
+    const rows=parseIndexRows(indexText);
+    if(!rows.length) return false;
+    const csvs={};
+    await Promise.all(rows.map(async r=>{ csvs[r.file]=await fetchTextNoCache('./logs/'+r.file); }));
+    const out=parseIndexWithCsvs(indexText,csvs);
+    if(!out.length) return false;
+    flights=out; selected=new Set(flights.map(f=>f.file));
+    saveLocal(); setStatus('Loaded '+flights.length+' bundled flights from repository.');
+    return true;
+  }catch(e){ console.warn('Bundled logs not loaded',e); return false; }
+}
+async function fetchTextNoCache(url){
+  const sep=url.includes('?')?'&':'?';
+  const r=await fetch(url+sep+'v='+Date.now(),{cache:'no-store'});
+  if(!r.ok) throw new Error(url+' '+r.status);
+  return await r.text();
+}
+function parseIndexRows(indexText){
+  return indexText.trim().split(/\r?\n/).filter(Boolean).map(line=>line.split(',').map(x=>x.trim())).filter(r=>r.length>=6 && r[0].toLowerCase()!=='date').map(r=>({date:r[0],time:r[1],launchAlt:+r[2],maxAlt:+r[3],duration:+r[4],file:r[5]}));
+}
+function parseIndexWithCsvs(indexText,csvs){
   const out=[];
-  for(const r of rows){
-    if(r.length<6) continue;
-    const [date,time,lnh,maxAlt,duration,file]=r.map(x=>x.trim());
-    const txt=csvs[file]; if(!txt) continue;
+  for(const r of parseIndexRows(indexText)){
+    const txt=csvs[r.file]; if(!txt) continue;
     const pts=parseFlightCsv(txt); if(!pts.length) continue;
-    out.push({date,time,launchAlt:+lnh,maxAlt:+maxAlt,duration:+duration,file,pts,visible:true});
+    out.push({...r,pts,visible:true});
   }
-  flights=out.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)); selected=new Set(flights.map(f=>f.file));
-  saveLocal(); resetViewForMode(); renderAll();
+  return out.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 function parseFlightCsv(txt){
   const lines=txt.trim().split(/\r?\n/).filter(Boolean); const pts=[];
