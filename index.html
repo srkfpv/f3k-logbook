@@ -3,78 +3,64 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#0b7bbf" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="F3K DLG" />
-  <title>F3K DLG Dashboard</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>F3K Logbook</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon.svg" />
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.svg" />
 </head>
 <body>
-  <header class="top">
-    <div>
-      <h1>F3K DLG</h1>
-      <p>Session dashboard · altitude, launch, gain, duration</p><p id="dataStatus" class="dataStatus">Loading bundled logs…</p>
-    </div>
-    <label class="importBtn">
-      Import logs
-      <input id="fileInput" type="file" multiple accept=".csv,text/csv" />
-    </label>
-  </header>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="brand-row">
+        <div class="sig" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><path d="M7 31 C14 18, 24 8, 41 7 C32 13, 25 23, 21 39 C18 30, 13 29, 7 31Z"/><path d="M17 28 L39 12"/></svg>
+        </div>
+        <div>
+          <h1>F3K Logbook</h1>
+          <p>by SRK.FPV</p>
+        </div>
+        <button id="themeToggle" class="icon-btn" aria-label="Toggle theme">☀︎</button>
+      </div>
+    </header>
 
-  <main>
-    <section class="panel statsGrid" id="statsGrid">
-      <div><span>Flights</span><b id="sFlights">0</b></div>
-      <div><span>Flight time</span><b id="sTime">00:00:00</b></div>
-      <div><span>Max alt</span><b id="sMaxAlt">0 m</b></div>
-      <div><span>Max launch</span><b id="sLaunch">0 m</b></div>
-      <div><span>Max gain</span><b id="sGain">0 m</b></div>
-      <div><span>Longest</span><b id="sLongest">00:00</b></div>
+    <section class="session-bar">
+      <button id="allTime" class="date-chip active">All time <span id="allCount">0</span></button>
+      <div id="dateChips" class="date-chips"></div>
     </section>
 
-    <section class="panel controls">
-      <div class="controlRow">
-        <button id="showAll">All</button>
-        <button id="showTopAlt">Top alt</button>
-        <button id="showLongest">Longest</button>
-        <button id="resetView">Reset view</button>
-        <button id="reloadRepo">Reload repo logs</button>
-        <button id="exportSvg">Export SVG</button>
+    <section class="chart-card">
+      <div class="chart-topline">
+        <div id="scopeLabel" class="scope">All time</div>
+        <div class="zoom-controls">
+          <button id="zoomOut">−</button>
+          <button id="zoomReset">fit</button>
+          <button id="zoomIn">+</button>
+        </div>
       </div>
-      <div class="controlRow">
-        <label>Mode
-          <select id="mode">
-            <option value="overlay">Altitude overlay</option>
-            <option value="launch">Launch trend</option>
-            <option value="duration">Duration trend</option>
-            <option value="gain">Gain trend</option>
-            <option value="scatter">Duration vs launch</option>
-            <option value="vario">Vario overlay</option>
-          </select>
-        </label>
-        <label>Min duration <input id="minDuration" type="range" min="0" max="300" value="0" /></label>
-        <span id="minDurationLabel">0 s</span>
-        <label>Line opacity <input id="opacity" type="range" min="15" max="100" value="56" /></label>
-        <label>Line width <input id="lineWidth" type="range" min="1" max="4" value="2" /></label>
+      <div id="chartScroller" class="chart-scroller">
+        <svg id="chart" class="chart" role="img" aria-label="Altitude overlay chart"></svg>
       </div>
-      <div class="hint">iPhone: tap line/point for tooltip. Desktop: wheel zooms time only, drag pans horizontally, Shift+drag zooms selected time range. Vertical scale is locked.</div>
-    </section>
-
-    <section class="panel chartWrap">
-      <svg id="chart" viewBox="0 0 1200 720" role="img" aria-label="F3K chart"></svg>
       <div id="tooltip" class="tooltip hidden"></div>
     </section>
 
-    <section class="panel listPanel">
-      <div class="listHeader">
-        <b>Flights</b>
-        <button id="clearData">Clear local data</button>
-      </div>
-      <div id="flightList" class="flightList"></div>
+    <section class="metrics-grid">
+      <button class="metric total" id="cardFlights"><span>Flights</span><strong id="mFlights">0</strong></button>
+      <button class="metric total" id="cardTime"><span>Total time</span><strong id="mTime">00:00:00</strong></button>
+      <button class="metric" data-focus="maxAlt"><span>Max alt</span><strong id="mMaxAlt">0 m</strong><small id="mMaxAltSub">tap to isolate</small></button>
+      <button class="metric" data-focus="launchAlt"><span>Launch</span><strong id="mLaunch">0 m</strong><small id="mLaunchSub">tap to isolate</small></button>
+      <button class="metric" data-focus="gain"><span>Gain</span><strong id="mGain">0 m</strong><small id="mGainSub">tap to isolate</small></button>
+      <button class="metric" data-focus="duration"><span>Longest</span><strong id="mLongest">00:00</strong><small id="mLongestSub">tap to isolate</small></button>
     </section>
-  </main>
 
-  <script src="app.js?v=3"></script>
+    <footer class="status-row">
+      <span id="status">Loading repo logs…</span>
+      <span id="selectedInfo">Overlay</span>
+    </footer>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>
