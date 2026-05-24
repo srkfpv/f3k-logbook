@@ -1,10 +1,11 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2023,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
-const COLORS=['#18e7ff','#7657ff','#27f3b2','#ffcc66','#5aa7ff','#d8cbff','#ff5d7a','#00b7ff'];
+const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2025,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const BASE_LINE='#4c88ff';
+const RECORD_COLORS={maxAlt:'#20d7ff',launchAlt:'#7c5cff',gain:'#00e0a4',duration:'#ffc04d'};
 const MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const LOG_DIR='logs/';
-const M={l:42,r:10,t:14,b:28};
+const M={l:42,r:12,t:14,b:30};
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 init();
@@ -27,10 +28,10 @@ function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m=
 async function loadRepoLogs(){
   try{const txt=await fetch(LOG_DIR+'index.csv',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();}); const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6); const out=[];
     for(const r of rows){const [date,time,lnh,maxAlt,duration,file]=r; try{const csv=await fetch(LOG_DIR+file,{cache:'no-store'}).then(x=>x.ok?x.text():''); const pts=parseCsv(csv); if(pts.length){const yr=yearFromFile(file); out.push({date,time,year:yr,file,launchAlt:+lnh,maxAlt:+maxAlt,duration:+duration,gain:+maxAlt-+lnh,pts});}}catch{}}
-    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=state.flights[0]?.year||2023; const months=[...new Set(state.flights.map(f=>+f.date.split('/')[1]))]; state.openMonth=months.includes(5)?5:(months[0]||1); fitView();
+    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=2025; const months=[...new Set(state.flights.map(f=>+f.date.split('/')[1]))]; state.openMonth=months.includes(5)?5:(months[0]||1); fitView();
   }catch(e){state.flights=[];}
 }
-function yearFromFile(file){const m=String(file).match(/^f(\d{2})/);return m?2000+Number(m[1]):2023;}
+function yearFromFile(file){return 2025;}
 function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} function timeNum(t){return Number(String(t).replace(/\D/g,''))||0;}
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
 function flightsBase(){let a=state.flights; if(!state.allTime&&state.selDates.size) a=a.filter(f=>state.selDates.has(f.date)); return a;}
@@ -48,15 +49,41 @@ function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.durati
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
 function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setMode('charts'); fitView(); renderAll();}
 function setActiveRecord(k){document.querySelectorAll('.recordCard').forEach(b=>b.classList.toggle('active',b.dataset.focus===k));}
-function sortBy(k){state.sortDir=state.sortKey===k?-state.sortDir:-1;state.sortKey=k; document.querySelectorAll('.sortable').forEach(th=>{const on=th.dataset.k===k; th.classList.toggle('sorted',on); th.dataset.arrow=on?(state.sortDir<0?'▼':'▲'):'';}); renderTable();}
-function renderTable(){const tb=$('logRows'); tb.innerHTML=''; let rows=[...flightsBase()]; if(state.sortKey) rows.sort((a,b)=>(b[state.sortKey]-a[state.sortKey])*state.sortDir); const max={launchAlt:Math.max(...rows.map(r=>r.launchAlt),1),maxAlt:Math.max(...rows.map(r=>r.maxAlt),1),gain:Math.max(...rows.map(r=>r.gain),1),duration:Math.max(...rows.map(r=>r.duration),1)}; rows.forEach(f=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rank(f.launchAlt,max.launchAlt)}">${Math.round(f.launchAlt)}</td><td class="${rank(f.maxAlt,max.maxAlt)}">${Math.round(f.maxAlt)}</td><td class="${rank(f.gain,max.gain)}">${Math.round(f.gain)}</td><td class="${rank(f.duration,max.duration)}">${fmtTime(f.duration)}</td>`; tr.onclick=()=>{state.single=f;state.focus=null;setActiveRecord(null);setMode('charts');fitView();renderAll();}; tb.appendChild(tr);});}
-function rank(v,m){const r=v/(m||1);return r>=.9?'valTop':r>=.72?'valGood':r>=.55?'valMid':'';}
+function sortBy(k){state.sortDir=state.sortKey===k?-state.sortDir:1;state.sortKey=k; document.querySelectorAll('.sortable').forEach(th=>{const on=th.dataset.k===k; th.classList.toggle('sorted',on); th.dataset.arrow=on?(state.sortDir>0?'▼':'▲'):'';}); renderTable();}
+function renderTable(){
+  const tb=$('logRows'); tb.innerHTML='';
+  let rows=[...flightsBase()];
+  if(state.sortKey) rows.sort((a,b)=>(b[state.sortKey]-a[state.sortKey])*state.sortDir);
+  const rankMaps={};
+  ['launchAlt','maxAlt','gain','duration'].forEach(k=>{
+    rankMaps[k]=new Map([...rows].sort((a,b)=>b[k]-a[k]).slice(0,5).map((f,i)=>[f.file,'top'+(i+1)]));
+  });
+  rows.forEach(f=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${Math.round(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}">${fmtTime(f.duration)}</td>`;
+    tr.onclick=()=>{state.single=f;state.focus=null;setActiveRecord(null);setMode('charts');fitView();renderAll();};
+    tb.appendChild(tr);
+  });
+}
 function fmtTime(s){s=Math.round(s||0);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} function fmtHMS(s){s=Math.round(s||0);return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
 function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const dur=Math.max(60,...a.map(f=>f.duration)); const maxY=Math.max(30,...(state.single?a:base).map(f=>f.maxAlt))*1.08; state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10; if(redraw)drawChart();}
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
-function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); $('backBtn').classList.toggle('hidden',!state.single); $('chartLabel').textContent=state.single?`${state.single.date} ${state.single.time}`:'ALL FLIGHTS OVERLAY'; if(!a.length){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('NO LOGS',w/2,h/2);return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach((f,i)=>drawFlight(f,COLORS[state.flights.indexOf(f)%COLORS.length],w,h,!!state.single)); ctx.restore(); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l,M.t,w-M.l-M.r,h-M.t-M.b);});}
+function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); $('backBtn').classList.toggle('hidden',!state.single); $('chartLabel').textContent=state.single?`${state.single.date} ${state.single.time}`:'ALL FLIGHTS OVERLAY'; if(!a.length){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('NO LOGS',w/2,h/2);return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+
+function colorForFlight(f){
+  if(state.single && f.file===state.single.file){
+    const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[state.focus];
+    return key?RECORD_COLORS[key]:css('--cyan');
+  }
+  const base=flightsBase();
+  if(best(base,'maxAlt')?.file===f.file) return RECORD_COLORS.maxAlt;
+  if(best(base,'launchAlt')?.file===f.file) return RECORD_COLORS.launchAlt;
+  if(best(base,'gain')?.file===f.file) return RECORD_COLORS.gain;
+  if(best(base,'duration')?.file===f.file) return RECORD_COLORS.duration;
+  return BASE_LINE;
+}
 function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b);}
 function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5); ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5); ctx.stroke();}
 function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.78; ctx.lineWidth=single?2.4:1.7; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}

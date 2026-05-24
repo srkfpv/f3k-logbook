@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="88" fill="#08111d"/>
-  <path d="M72 360 156 278 236 326 332 206 440 108" fill="none" stroke="#6d5cff" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M72 360 156 278 236 326 332 206 440 108" fill="none" stroke="#16e7ff" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter" opacity=".95"/>
-  <g fill="#16e7ff"><rect x="63" y="392" width="46" height="12"/><rect x="63" y="416" width="76" height="12"/><rect x="63" y="440" width="32" height="12"/></g>
-  <text x="58" y="232" font-family="Arial Black,Arial,sans-serif" font-size="104" font-style="italic" font-weight="900" letter-spacing="-8" fill="#f5f7ff">F3K</text>
-  <path d="M206 159h104l-28 28h-104z" fill="#6d5cff"/>
-  <g opacity=".38" stroke="#3b4b63" stroke-width="3"><path d="M72 84h368M72 164h368M72 244h368M72 324h368"/><path d="M112 72v340M212 72v340M312 72v340M412 72v340"/></g>
+  <path d="M96 390H416M96 322H416M96 254H416M96 186H416" stroke="#1c3148" stroke-width="8"/>
+  <path d="M116 356L178 314L246 334L320 246L396 198" fill="none" stroke="#7C5CFF" stroke-width="18" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M128 120V400" stroke="#EAF2FF" stroke-width="16" stroke-linecap="square"/>
+  <path d="M142 142H324L286 186H142Z" fill="#EAF2FF"/>
+  <path d="M142 198H280L238 242H142Z" fill="#20D7FF"/>
+  <path d="M324 142L370 164L324 186Z" fill="#7C5CFF"/>
+  <circle cx="396" cy="198" r="18" fill="#20D7FF"/>
 </svg>
