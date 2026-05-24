@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#0b1220" />
+  <meta name="theme-color" content="#080d14" />
   <title>F3K Logbook</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" />
@@ -11,59 +11,78 @@
 </head>
 <body>
   <main class="app">
-    <header class="top gradientHeader">
+    <header class="topbar">
       <div class="brand">
         <img class="mark" src="icon.svg" alt="" />
-        <div>
-          <h1>F3K LOGBOOK</h1>
-          
-        </div>
+        <h1>F3K LOGBOOK</h1>
       </div>
-      <button id="themeBtn" class="theme" aria-label="theme">☾</button>
+      <button id="themeBtn" class="iconBtn" aria-label="theme">☾</button>
     </header>
 
-    <section class="calendarPanel"><div class="sectionTitle">DATE FILTER</div>
-      
-      <button class="metric" data-focus="maxAlt"><span>Max alt</span><b id="mMaxAlt">0 m</b></button>
-      <button class="metric" data-focus="launch"><span>Launch</span><b id="mLaunch">0 m</b></button>
-      <button class="metric" data-focus="gain"><span>Gain</span><b id="mGain">0 m</b></button>
-      <button class="metric" data-focus="longest"><span>Longest</span><b id="mLongest">00:00</b></button>
+    <section class="panel datePanel">
+      <button id="dateToggle" class="panelHead" type="button">
+        <span><b>DATE</b><em id="dateLabel">ALL TIME</em></span>
+        <i id="dateChevron">▾</i>
+      </button>
+      <div id="dateBody" class="dateBody hidden">
+        <div class="dateToolbar">
+          <button id="allTimeBtn" class="chip active">ALL TIME</button>
+          <button id="clearDatesBtn" class="chip">CLEAR</button>
+          <span id="yearLabel" class="yearLabel">2023</span>
+        </div>
+        <div id="monthGrid" class="monthGrid"></div>
+        <div id="calendarWrap" class="calendarWrap hidden">
+          <div id="monthLabel" class="monthLabel">MAY 2023</div>
+          <div class="weekdays"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+          <div id="calendar" class="calendar"></div>
+        </div>
+      </div>
     </section>
 
-<section class="summaryWrap"><div class="sectionTitle">SUMMARY</div><div class="summaryInfo"><div><span>Flights</span><b id="mFlights">0</b></div><div><span>Total time</span><b id="mTime">00:00:00</b></div></div><section class="summary" id="summaryCards">
-      <div class="calendarHead">
-        <button id="allTimeBtn" class="mini active">All time</button>
-        <div id="monthLabel" class="monthLabel">May</div>
+    <section class="panel summaryPanel">
+      <div class="sectionKicker">SUMMARY</div>
+      <div class="infoLine">
+        <div><span>FLIGHTS</span><b id="mFlights">0</b></div>
+        <div><span>TOTAL TIME</span><b id="mTime">00:00:00</b></div>
       </div>
-      <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-      <div id="calendar" class="calendar"></div>
-    </section></section>
-
-<section class="dataSection"><div class="sectionTitle">FLIGHT DETAILS</div>
-    <section class="viewSwitch">
-      <button id="chartsTab" class="tab active">Charts</button>
-      <button id="tableTab" class="tab">Log table</button>
-      
+      <div class="recordGrid">
+        <button class="recordCard" data-focus="maxAlt"><span>MAX ALT</span><b id="mMaxAlt">0 m</b><small>tap to inspect</small></button>
+        <button class="recordCard" data-focus="launch"><span>LAUNCH</span><b id="mLaunch">0 m</b><small>tap to inspect</small></button>
+        <button class="recordCard" data-focus="gain"><span>GAIN</span><b id="mGain">0 m</b><small>tap to inspect</small></button>
+        <button class="recordCard" data-focus="longest"><span>LONGEST</span><b id="mLongest">00:00</b><small>tap to inspect</small></button>
+      </div>
     </section>
 
-    <section id="chartPanel" class="chartPanel">
-      <div class="chartStatus"><button id="fitBtn" class="fit insideFit">FIT</button>
-        <button id="backBtn" class="back hidden">← Overlay</button>
-        <span id="chartLabel">All flights overlay</span>
+    <section class="panel detailsPanel">
+      <div class="detailsHead">
+        <div class="sectionKicker">FLIGHT DATA</div>
+        <div class="tabs">
+          <button id="chartsTab" class="tab active">CHART</button>
+          <button id="tableTab" class="tab">TABLE</button>
+        </div>
       </div>
-      <div class="chartFrame">
-        <svg id="chart" viewBox="0 0 390 380" preserveAspectRatio="none" role="img" aria-label="flight chart"></svg>
-        <div id="tooltip" class="tooltip hidden"></div>
-      </div>
-      
+
+      <section id="chartPanel" class="chartPanel">
+        <div class="chartTop">
+          <button id="backBtn" class="chip hidden">OVERLAY</button>
+          <span id="chartLabel">ALL FLIGHTS OVERLAY</span>
+        </div>
+        <div id="chartFrame" class="chartFrame">
+          <canvas id="chartCanvas"></canvas>
+          <button id="fitBtn" class="fitBtn">FIT</button>
+          <div id="loader" class="loader hidden"><i></i></div>
+        </div>
+      </section>
+
+      <section id="tablePanel" class="tablePanel hidden">
+        <table>
+          <thead><tr><th>Date</th><th>Time</th><th class="sortable" data-k="launchAlt">Lnh</th><th class="sortable" data-k="maxAlt">Max</th><th class="sortable" data-k="gain">Gain</th><th class="sortable" data-k="duration">Dur</th></tr></thead>
+          <tbody id="logRows"></tbody>
+        </table>
+      </section>
     </section>
 
-    <section id="tablePanel" class="tablePanel hidden">
-      <table>
-        <thead><tr><th>Date</th><th>Time</th><th class="sortable" data-k="launchAlt">Lnh</th><th class="sortable" data-k="maxAlt">Max</th><th class="sortable" data-k="gain">Gain</th><th class="sortable" data-k="duration">Dur</th></tr></thead>
-        <tbody id="logRows"></tbody>
-      </table>
-    </section><footer class="footer">LOGBOOK by SRK.FPV</footer>
+    <footer class="footer">LOGBOOK by SRK.FPV</footer>
   </main>
   <script src="app.js"></script>
 </body>

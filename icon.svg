@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f8cff"/></linearGradient></defs>
-<rect width="512" height="512" rx="96" fill="#081018"/>
-<path d="M80 170 L170 170 L170 360" stroke="#2b3444" stroke-width="8" fill="none" opacity="0.8"/>
-<path d="M80 320 C140 260 180 330 240 250 S340 260 430 120" stroke="url(#g)" stroke-width="16" fill="none" stroke-linecap="round"/>
-<circle cx="80" cy="320" r="10" fill="#7c3aed"/><circle cx="240" cy="250" r="10" fill="#8b5cf6"/><circle cx="430" cy="120" r="12" fill="#4f8cff"/>
-<text x="70" y="445" font-family="Inter,Arial,sans-serif" font-size="120" font-weight="700" fill="#f8fafc">F3K</text>
+  <rect width="512" height="512" rx="88" fill="#08111d"/>
+  <path d="M72 360 156 278 236 326 332 206 440 108" fill="none" stroke="#6d5cff" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M72 360 156 278 236 326 332 206 440 108" fill="none" stroke="#16e7ff" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter" opacity=".95"/>
+  <g fill="#16e7ff"><rect x="63" y="392" width="46" height="12"/><rect x="63" y="416" width="76" height="12"/><rect x="63" y="440" width="32" height="12"/></g>
+  <text x="58" y="232" font-family="Arial Black,Arial,sans-serif" font-size="104" font-style="italic" font-weight="900" letter-spacing="-8" fill="#f5f7ff">F3K</text>
+  <path d="M206 159h104l-28 28h-104z" fill="#6d5cff"/>
+  <g opacity=".38" stroke="#3b4b63" stroke-width="3"><path d="M72 84h368M72 164h368M72 244h368M72 324h368"/><path d="M112 72v340M212 72v340M312 72v340M412 72v340"/></g>
 </svg>
