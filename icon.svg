@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" fill="#0b1220"/>
-  <path d="M14 72c28-21 65-31 100-28-31 7-62 22-92 42 28-9 54-12 80-9-28 6-53 15-75 29l-13-34z" fill="#2f80ff"/>
-  <path d="M31 38c18-13 40-18 66-14-23 6-43 16-61 31l-5-17z" fill="#2f80ff" opacity=".72"/>
-  <path d="M24 92h82" stroke="#2f80ff" stroke-width="6" stroke-linecap="square"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#123d8f"/></linearGradient>
+    <linearGradient id="line" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1f6fff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <path d="M12 92c20-22 35-22 51-16s30 7 53-30" fill="none" stroke="url(#line)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M20 64l84-21c6-1 8 4 2 7L65 68l38 25c5 4 1 8-5 6L55 75 30 96c-4 3-9 0-6-5l16-27-22-1c-6 0-5-7 2-9z" fill="#fff" opacity=".96"/>
+  <path d="M21 62l19 2-16 27" fill="#dbeafe" opacity=".65"/>
 </svg>

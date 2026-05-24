@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="appLoader" class="appLoader"><span></span></div>
   <main class="app">
     <header class="top">
       <div class="brand">
@@ -22,22 +23,32 @@
       <button id="themeBtn" class="theme" aria-label="theme">☾</button>
     </header>
 
-    <section class="summary" id="summaryCards">
-      <button class="metric" data-focus="all"><span>Flights</span><b id="mFlights">0</b></button>
-      <button class="metric" data-focus="time"><span>Total</span><b id="mTime">00:00:00</b></button>
-      <button class="metric" data-focus="maxAlt"><span>Max alt</span><b id="mMaxAlt">0 m</b></button>
-      <button class="metric" data-focus="launch"><span>Launch</span><b id="mLaunch">0 m</b></button>
-      <button class="metric" data-focus="gain"><span>Gain</span><b id="mGain">0 m</b></button>
-      <button class="metric" data-focus="longest"><span>Longest</span><b id="mLongest">00:00</b></button>
+    <section class="calendarPanel">
+      <button id="dateToggle" class="dateToggle" type="button">
+        <span>
+          <small>Date range</small>
+          <b id="rangeLabel">All 2026</b>
+        </span>
+        <i id="dateChevron">⌄</i>
+      </button>
+      <div id="dateDrawer" class="dateDrawer hidden">
+        <div class="calendarHead">
+          <button id="allTimeBtn" class="mini active">All year</button>
+          <div id="monthLabel" class="monthLabel">May 2026</div>
+        </div>
+        <div id="monthStrip" class="monthStrip"></div>
+        <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+        <div id="calendar" class="calendar"></div>
+      </div>
     </section>
 
-    <section class="calendarPanel">
-      <div class="calendarHead">
-        <button id="allTimeBtn" class="mini active">All time</button>
-        <div id="monthLabel" class="monthLabel">May</div>
-      </div>
-      <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-      <div id="calendar" class="calendar"></div>
+    <section class="summary" id="summaryCards">
+      <div class="metric stat"><span>Flights</span><b id="mFlights">0</b></div>
+      <div class="metric stat"><span>Total</span><b id="mTime">00:00:00</b></div>
+      <button class="metric record" data-focus="maxAlt"><span>Max alt</span><b id="mMaxAlt">0 m</b><em>›</em></button>
+      <button class="metric record" data-focus="launch"><span>Launch</span><b id="mLaunch">0 m</b><em>›</em></button>
+      <button class="metric record" data-focus="gain"><span>Gain</span><b id="mGain">0 m</b><em>›</em></button>
+      <button class="metric record" data-focus="longest"><span>Longest</span><b id="mLongest">00:00</b><em>›</em></button>
     </section>
 
     <section class="viewSwitch">
@@ -51,16 +62,15 @@
         <button id="backBtn" class="back hidden">← Overlay</button>
         <span id="chartLabel">All flights overlay</span>
       </div>
-      <div class="chartFrame">
+      <div class="chartFrame loadingArea">
         <svg id="chart" viewBox="0 0 390 380" preserveAspectRatio="none" role="img" aria-label="flight chart"></svg>
-        <div id="tooltip" class="tooltip hidden"></div>
       </div>
-      <div class="chartHelp">Pinch to zoom time · drag left/right · tap line for details</div>
+      <div class="chartHelp">Pinch to zoom time · drag left/right · use records or table to open details</div>
     </section>
 
     <section id="tablePanel" class="tablePanel hidden">
       <table>
-        <thead><tr><th>Date</th><th>Time</th><th>Lnh</th><th>Max</th><th>Gain</th><th>Dur</th></tr></thead>
+        <thead><tr><th data-sort="dateTime">Date</th><th data-sort="time">Time</th><th data-sort="launchAlt">Lnh</th><th data-sort="maxAlt">Max</th><th data-sort="gain">Gain</th><th data-sort="duration">Dur</th></tr></thead>
         <tbody id="logRows"></tbody>
       </table>
     </section>
