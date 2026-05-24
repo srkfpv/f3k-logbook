@@ -1,8 +1,9 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
-const BASE_LINE='#111111';
-const RECORD_COLORS={maxAlt:'#7f1d1d',launchAlt:'#8f1d1d',gain:'#7f1d1d',duration:'#8f1d1d'};
+function chartBaseColor(){return css('--baseChart')||'#888';}
+function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
+const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
 const MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const LOG_DIR='logs/';
 const M={l:42,r:12,t:14,b:30};
@@ -23,7 +24,7 @@ function bindUI(){
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
-function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
+function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);['dateLoading','summaryLoading'].forEach(id=>$(id)?.classList.toggle('hidden',!v));$('infoLine')?.classList.toggle('loadingState',v);$('recordGrid')?.classList.toggle('loadingState',v);}
 function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
 async function loadRepoLogs(){
   try{const txt=await fetch(LOG_DIR+'index.csv',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();}); const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6); const out=[];
@@ -71,19 +72,19 @@ function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const 
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
-function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); $('backBtn').classList.toggle('hidden',!state.single); $('chartLabel').textContent=state.single?`${state.single.date} ${state.single.time}`:'ALL FLIGHTS OVERLAY'; if(!a.length){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('NO LOGS',w/2,h/2);return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); $('backBtn').classList.toggle('hidden',!state.single); $('chartLabel').textContent=state.single?`${state.single.date} ${state.single.time}`:'ALL FLIGHTS OVERLAY'; if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
 
 function colorForFlight(f){
   if(state.single && f.file===state.single.file){
     const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[state.focus];
-    return key?RECORD_COLORS[key]:BASE_LINE;
+    return key?chartRecordColor():chartBaseColor();
   }
   const base=flightsBase();
-  if(best(base,'maxAlt')?.file===f.file) return RECORD_COLORS.maxAlt;
-  if(best(base,'launchAlt')?.file===f.file) return RECORD_COLORS.launchAlt;
-  if(best(base,'gain')?.file===f.file) return RECORD_COLORS.gain;
-  if(best(base,'duration')?.file===f.file) return RECORD_COLORS.duration;
-  return BASE_LINE;
+  if(best(base,'maxAlt')?.file===f.file) return chartRecordColor();
+  if(best(base,'launchAlt')?.file===f.file) return chartRecordColor();
+  if(best(base,'gain')?.file===f.file) return chartRecordColor();
+  if(best(base,'duration')?.file===f.file) return chartRecordColor();
+  return chartBaseColor();
 }
 function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b);}
 function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5); ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5); ctx.stroke();}
