@@ -10,70 +10,60 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="appLoader" class="appLoader"><span></span></div>
   <main class="app">
-    <header class="top">
+    <header class="top gradientHeader">
       <div class="brand">
         <img class="mark" src="icon.svg" alt="" />
         <div>
-          <h1>F3K Logbook</h1>
-          <p>by SRK.FPV</p>
+          <h1>F3K LOGBOOK</h1>
+          
         </div>
       </div>
       <button id="themeBtn" class="theme" aria-label="theme">☾</button>
     </header>
 
-    <section class="calendarPanel">
-      <button id="dateToggle" class="dateToggle" type="button">
-        <span>
-          <small>Date range</small>
-          <b id="rangeLabel">All 2026</b>
-        </span>
-        <i id="dateChevron">⌄</i>
-      </button>
-      <div id="dateDrawer" class="dateDrawer hidden">
-        <div class="calendarHead">
-          <button id="allTimeBtn" class="mini active">All year</button>
-          <div id="monthLabel" class="monthLabel">May 2026</div>
-        </div>
-        <div id="monthStrip" class="monthStrip"></div>
-        <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-        <div id="calendar" class="calendar"></div>
+    <section class="calendarPanel"><div class="sectionTitle">DATE FILTER</div>
+      
+      <button class="metric" data-focus="maxAlt"><span>Max alt</span><b id="mMaxAlt">0 m</b></button>
+      <button class="metric" data-focus="launch"><span>Launch</span><b id="mLaunch">0 m</b></button>
+      <button class="metric" data-focus="gain"><span>Gain</span><b id="mGain">0 m</b></button>
+      <button class="metric" data-focus="longest"><span>Longest</span><b id="mLongest">00:00</b></button>
+    </section>
+
+<section class="summaryWrap"><div class="sectionTitle">SUMMARY</div><div class="summaryInfo"><div><span>Flights</span><b id="mFlights">0</b></div><div><span>Total time</span><b id="mTime">00:00:00</b></div></div><section class="summary" id="summaryCards">
+      <div class="calendarHead">
+        <button id="allTimeBtn" class="mini active">All time</button>
+        <div id="monthLabel" class="monthLabel">May</div>
       </div>
-    </section>
+      <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <div id="calendar" class="calendar"></div>
+    </section></section>
 
-    <section class="summary" id="summaryCards">
-      <div class="metric stat"><span>Flights</span><b id="mFlights">0</b></div>
-      <div class="metric stat"><span>Total</span><b id="mTime">00:00:00</b></div>
-      <button class="metric record" data-focus="maxAlt"><span>Max alt</span><b id="mMaxAlt">0 m</b><em>›</em></button>
-      <button class="metric record" data-focus="launch"><span>Launch</span><b id="mLaunch">0 m</b><em>›</em></button>
-      <button class="metric record" data-focus="gain"><span>Gain</span><b id="mGain">0 m</b><em>›</em></button>
-      <button class="metric record" data-focus="longest"><span>Longest</span><b id="mLongest">00:00</b><em>›</em></button>
-    </section>
-
+<section class="dataSection"><div class="sectionTitle">FLIGHT DETAILS</div>
     <section class="viewSwitch">
       <button id="chartsTab" class="tab active">Charts</button>
       <button id="tableTab" class="tab">Log table</button>
-      <button id="fitBtn" class="fit">Fit</button>
+      
     </section>
 
     <section id="chartPanel" class="chartPanel">
-      <div class="chartStatus">
+      <div class="chartStatus"><button id="fitBtn" class="fit insideFit">FIT</button>
         <button id="backBtn" class="back hidden">← Overlay</button>
         <span id="chartLabel">All flights overlay</span>
       </div>
-      <div class="chartFrame loadingArea">
+      <div class="chartFrame">
         <svg id="chart" viewBox="0 0 390 380" preserveAspectRatio="none" role="img" aria-label="flight chart"></svg>
+        <div id="tooltip" class="tooltip hidden"></div>
       </div>
-      <div class="chartHelp">Pinch to zoom time · drag left/right · use records or table to open details</div>
+      
     </section>
 
     <section id="tablePanel" class="tablePanel hidden">
       <table>
-        <thead><tr><th data-sort="dateTime">Date</th><th data-sort="time">Time</th><th data-sort="launchAlt">Lnh</th><th data-sort="maxAlt">Max</th><th data-sort="gain">Gain</th><th data-sort="duration">Dur</th></tr></thead>
+        <thead><tr><th>Date</th><th>Time</th><th class="sortable" data-k="launchAlt">Lnh</th><th class="sortable" data-k="maxAlt">Max</th><th class="sortable" data-k="gain">Gain</th><th class="sortable" data-k="duration">Dur</th></tr></thead>
         <tbody id="logRows"></tbody>
       </table>
-    </section>
+    </section><footer class="footer">LOGBOOK by SRK.FPV</footer>
   </main>
   <script src="app.js"></script>
 </body>
