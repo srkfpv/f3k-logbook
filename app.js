@@ -91,8 +91,42 @@ function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Ma
 function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}
 function ticks(a,b,n){const span=b-a;if(span<=0)return[a];const raw=span/n, mag=10**Math.floor(Math.log10(raw)), step=(raw/mag>=5?5:raw/mag>=2?2:1)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-6;v+=step)out.push(v);return out;}
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
-function pointerDown(e){frame.setPointerCapture(e.pointerId); const p=point(e); state.pointers.set(e.pointerId,p); if(state.pointers.size===1) state.drag={x:p.x,x0:state.x0,x1:state.x1}; if(state.pointers.size===2){const ps=[...state.pointers.values()], dist=Math.abs(ps[0].x-ps[1].x), mid=(ps[0].x+ps[1].x)/2; state.pinch={dist,mid,x0:state.x0,x1:state.x1}; state.drag=null;}}
-function pointerMove(e){if(!state.pointers.has(e.pointerId))return; const p=point(e), w=frame.getBoundingClientRect().width; state.pointers.set(e.pointerId,p); if(state.pointers.size===2&&state.pinch){const ps=[...state.pointers.values()], dist=Math.max(24,Math.abs(ps[0].x-ps[1].x)), mid=(ps[0].x+ps[1].x)/2; const oldSpan=state.pinch.x1-state.pinch.x0, newSpan=oldSpan*(state.pinch.dist/dist), center=state.pinch.x0+(state.pinch.x1-state.pinch.x0)/2+(state.pinch.mid-mid)/(w-M.l-M.r)*newSpan; state.x0=center-newSpan/2; state.x1=center+newSpan/2; clampView(); drawChart(); return;} if(state.drag&&state.pointers.size===1){const span=state.drag.x1-state.drag.x0, dt=-(p.x-state.drag.x)/(w-M.l-M.r)*span; state.x0=state.drag.x0+dt; state.x1=state.drag.x1+dt; clampView(); drawChart();}}
+function pointerDown(e){
+  if(e.pointerType==='mouse') frame.setPointerCapture(e.pointerId);
+  const p=point(e);
+  state.pointers.set(e.pointerId,p);
+  if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,mode:null};
+  if(state.pointers.size===2){
+    e.preventDefault();
+    const ps=[...state.pointers.values()], dist=Math.abs(ps[0].x-ps[1].x), mid=(ps[0].x+ps[1].x)/2;
+    state.pinch={dist,mid,x0:state.x0,x1:state.x1};
+    state.drag=null;
+  }
+}
+function pointerMove(e){
+  if(!state.pointers.has(e.pointerId))return;
+  const p=point(e), w=frame.getBoundingClientRect().width;
+  state.pointers.set(e.pointerId,p);
+  if(state.pointers.size===2&&state.pinch){
+    e.preventDefault();
+    const ps=[...state.pointers.values()], dist=Math.max(24,Math.abs(ps[0].x-ps[1].x)), mid=(ps[0].x+ps[1].x)/2;
+    const oldSpan=state.pinch.x1-state.pinch.x0, newSpan=oldSpan*(state.pinch.dist/dist), center=state.pinch.x0+(state.pinch.x1-state.pinch.x0)/2+(state.pinch.mid-mid)/(w-M.l-M.r)*newSpan;
+    state.x0=center-newSpan/2; state.x1=center+newSpan/2; clampView(); drawChart(); return;
+  }
+  if(state.drag&&state.pointers.size===1){
+    const dx=p.x-state.drag.x, dy=p.y-state.drag.y;
+    if(!state.drag.mode){
+      if(Math.abs(dy)>Math.abs(dx)*1.15 && Math.abs(dy)>6){state.drag.mode='scroll'; return;}
+      if(Math.abs(dx)>8){state.drag.mode='pan';}
+    }
+    if(state.drag.mode==='scroll') return;
+    if(state.drag.mode==='pan'){
+      e.preventDefault();
+      const span=state.drag.x1-state.drag.x0, dt=-dx/(w-M.l-M.r)*span;
+      state.x0=state.drag.x0+dt; state.x1=state.drag.x1+dt; clampView(); drawChart();
+    }
+  }
+}
 function pointerUp(e){state.pointers.delete(e.pointerId); if(state.pointers.size<2)state.pinch=null; if(state.pointers.size===0)state.drag=null;}
 function wheelZoom(e){e.preventDefault(); const w=frame.getBoundingClientRect().width, p=point(e), cx=invx(p.x,w), z=e.deltaY>0?1.18:.82; state.x0=cx-(cx-state.x0)*z; state.x1=cx+(state.x1-cx)*z; clampView(); drawChart();}
 function clampView(){const a=flightsShown(), maxDur=Math.max(60,...a.map(f=>f.duration)); let span=state.x1-state.x0; const minSpan=Math.min(10,maxDur); span=Math.max(minSpan,Math.min(span,maxDur)); if(state.x0<0){state.x0=0;state.x1=span;} if(state.x1>maxDur){state.x1=maxDur;state.x0=maxDur-span;} if(state.x0<0)state.x0=0; state.x1=state.x0+span;}
