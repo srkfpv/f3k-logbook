@@ -29,14 +29,17 @@
         <i id="dateChevron">▾</i>
       </button>
       <div id="dateBody" class="dateBody hidden">
-        <div class="dateToolbar">
-          <button id="allTimeBtn" class="chip active">ALL TIME</button>
-          <button id="clearDatesBtn" class="chip">CLEAR</button>
-          <span id="yearLabel" class="yearLabel">2023</span>
+        <div class="dateToolbar presetToolbar">
+          <button id="lastBtn" class="chip">LAST</button>
+          <button id="last10Btn" class="chip">LAST 10</button>
+          <button id="allTimeBtn" class="chip active">ALL</button>
         </div>
-        <div id="monthGrid" class="monthGrid"></div>
-        <div id="calendarWrap" class="calendarWrap hidden">
-          <div id="monthLabel" class="monthLabel">MAY 2023</div>
+        <div id="calendarWrap" class="calendarWrap">
+          <div class="monthNav">
+            <button id="prevMonthBtn" class="monthArrow" type="button" aria-label="previous month">‹</button>
+            <div id="monthLabel" class="monthLabel">MAY 2026</div>
+            <button id="nextMonthBtn" class="monthArrow" type="button" aria-label="next month">›</button>
+          </div>
           <div class="weekdays"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
           <div id="calendar" class="calendar"></div>
         </div>
@@ -86,7 +89,7 @@
       </section>
     </section>
 
-    <footer class="footer">F3K LOGBOOK by SRK.FPV</footer>
+    <footer class="footer"><a href="upload.html">IMPORT LOGS</a><span>F3K LOGBOOK by SRK.FPV</span><em>ver. 20.0</em></footer>
   </main>
   <script src="app.js"></script>
 </body>

@@ -1,52 +1,52 @@
-
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="pl">
 <head>
-<meta charset="utf-8">
-<title>F3K LOGBOOK IMPORT</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#DB2777" />
+<title>F3K LOGBOOK Import</title>
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 <style>
-body{
-font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-background:#111;
-color:#fff;
-display:flex;
-align-items:center;
-justify-content:center;
-height:100vh;
-margin:0;
-}
-.box{
-width:min(700px,90vw);
-border:1px solid #2a2a2a;
-padding:32px;
-border-radius:24px;
-background:#181818;
-}
-.drop{
-margin-top:20px;
-padding:60px;
-border:2px dashed #DB2777;
-border-radius:20px;
-text-align:center;
-color:#bbb;
-}
-.version{
-margin-top:24px;
-font-size:12px;
-opacity:.5;
-text-align:center;
-}
+:root{--bg:#0f0f10;--card:#18181a;--card2:#202023;--text:#f6f6f7;--muted:#9b9ba1;--line:#2b2b30;--accent:#DB2777;--ok:#37b26c;--bad:#e15b5b}
+*{box-sizing:border-box} body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:28px} .wrap{width:min(820px,100%)}
+header{text-align:center;margin-bottom:22px} h1{margin:0;font-size:24px;letter-spacing:-.03em;font-weight:800} p{margin:8px 0 0;color:var(--muted);font-size:13px}.card{background:var(--card);border-radius:26px;padding:22px;box-shadow:0 18px 60px rgba(0,0,0,.25)}
+.drop{height:260px;border:1.5px dashed color-mix(in srgb,var(--accent) 70%,#fff 0%);border-radius:22px;background:var(--card2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transition:.18s ease}.drop.drag{transform:scale(.99);background:color-mix(in srgb,var(--accent) 10%,var(--card2));border-color:var(--accent)}
+.drop b{font-size:18px}.drop span{margin-top:8px;color:var(--muted);font-size:13px}.actions{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}button,.fileBtn{border:0;border-radius:999px;background:var(--accent);color:white;padding:12px 18px;font-size:12px;font-weight:800;letter-spacing:.06em;cursor:pointer}.ghost{background:#2a2a2d;color:#e7e7e8}.fileBtn input{display:none}.status{margin-top:18px;display:grid;gap:8px}.row{display:flex;justify-content:space-between;gap:14px;padding:10px 12px;border-radius:14px;background:#141416;color:var(--muted);font-size:13px}.row strong{color:var(--text);font-weight:650}.ok{color:var(--ok)!important}.bad{color:var(--bad)!important}.foot{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;font-weight:300}.foot a{color:var(--accent);text-decoration:none;font-weight:800}
 </style>
 </head>
 <body>
-<div class="box">
-<h1>F3K LOGBOOK IMPORT</h1>
-<p>Import index.csv and flight logs.</p>
-<div class="drop">
-Drag & Drop Logs Here
+<div class="wrap">
+<header><h1>F3K LOGBOOK IMPORT</h1><p>Wrzuć folder lub komplet plików: index.csv + CSV lotów. Dane zostaną zapisane lokalnie w przeglądarce.</p></header>
+<section class="card">
+<div id="drop" class="drop"><b>DROP LOGS HERE</b><span>albo wybierz folder / pliki z dysku</span></div>
+<div class="actions">
+<label class="fileBtn">SELECT FOLDER<input id="folderInput" type="file" webkitdirectory directory multiple></label>
+<label class="fileBtn ghost">SELECT FILES<input id="fileInput" type="file" multiple accept=".csv,text/csv"></label>
+<button id="clearBtn" class="ghost">CLEAR IMPORT</button>
 </div>
-<div class="version">ver. 20.0</div>
+<div class="status">
+<div class="row"><span>index.csv</span><strong id="sIndex">waiting</strong></div>
+<div class="row"><span>flight logs</span><strong id="sLogs">0</strong></div>
+<div class="row"><span>status</span><strong id="sStatus">ready</strong></div>
 </div>
+<div class="foot"><a href="index.html">BACK TO LOGBOOK</a><br>ver. 20.0</div>
+</section>
+</div>
+<script>
+const DB_NAME='f3k-logbook-db', DB_STORE='files';
+const $=id=>document.getElementById(id); const drop=$('drop');
+function setStatus(index,logs,status,cls){$('sIndex').textContent=index; $('sLogs').textContent=logs; $('sStatus').textContent=status; $('sStatus').className=cls||'';}
+function openDb(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE,{keyPath:'path'});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+async function clearDb(){const db=await openDb(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+async function saveFiles(items){const csvs=items.filter(f=>/\.csv$/i.test(f.name||f.path||'')); const index=csvs.find(f=>/(^|\/)index\.csv$/i.test(f.path||f.webkitRelativePath||f.name)); if(!index){setStatus('missing',csvs.length,'index.csv missing','bad');return;} setStatus('found',csvs.length-1,'reading files',''); const rows=[]; for(const f of csvs){const path=f.path||f.webkitRelativePath||f.name; const text=await f.text(); rows.push({path,name:f.name,text,updated:Date.now()});}
+ await clearDb(); const db=await openDb(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readwrite');const st=tx.objectStore(DB_STORE);rows.forEach(r=>st.put(r));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); setStatus('found',csvs.length-1,'imported','ok');}
+async function filesFromEntries(items){const out=[]; async function readEntry(entry,path=''){ if(entry.isFile){await new Promise(res=>entry.file(f=>{f.path=path+f.name;out.push(f);res();}));} else if(entry.isDirectory){const reader=entry.createReader(); let batch; do{batch=await new Promise(res=>reader.readEntries(res)); for(const e of batch) await readEntry(e,path+entry.name+'/');}while(batch.length);} } const entries=[...items].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean); for(const e of entries) await readEntry(e,''); return out;}
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');}));
+document.addEventListener('dragover',e=>{e.preventDefault();},{passive:false}); document.addEventListener('drop',e=>{e.preventDefault();},{passive:false});
+drop.addEventListener('drop',async e=>{setStatus('checking',0,'reading drop',''); const files=e.dataTransfer.items&&e.dataTransfer.items.length?await filesFromEntries(e.dataTransfer.items):[...e.dataTransfer.files]; await saveFiles(files);});
+$('folderInput').addEventListener('change',e=>saveFiles([...e.target.files])); $('fileInput').addEventListener('change',e=>saveFiles([...e.target.files])); $('clearBtn').onclick=async()=>{await clearDb();setStatus('waiting',0,'cleared','');};
+</script>
 </body>
 </html>

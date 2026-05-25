@@ -21,3 +21,22 @@
   .chartTop{height:28px;margin-bottom:6px}.tab,.fitBtn{height:28px}
   tbody td{padding:7px 4px}thead th{padding:8px 4px}
 }
+
+.footer{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:500;letter-spacing:.02em;opacity:.7;padding-bottom:calc(18px + env(safe-area-inset-bottom));}
+.footer a{color:var(--accent);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.12em;}
+.footer span{font-size:11px;font-weight:500;}
+.footer em{font-style:normal;font-size:10px;font-weight:300;opacity:.55;}
+
+/* v21 date selector rebuild */
+.presetToolbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.presetToolbar .chip{height:38px;font-size:12px;border-radius:16px}
+.monthGrid{display:none!important}
+.calendarWrap{display:block;margin-top:0;border-top:1px solid var(--grid);padding-top:12px}
+.monthNav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin-bottom:12px}
+.monthArrow{width:38px;height:38px;border-radius:14px;background:var(--panel2);font-size:24px;line-height:1;color:var(--ink);display:flex;align-items:center;justify-content:center}
+.monthArrow:active{background:var(--accent);color:#fff}
+.monthLabel{text-align:center;margin:0;font-size:15px;font-weight:900;letter-spacing:.16em;color:var(--ink)}
+.weekdays{gap:5px;margin-bottom:6px}.weekdays span{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted)}
+.calendar{gap:6px}.day{height:42px;border-radius:14px;font-size:15px;color:color-mix(in srgb,var(--muted) 70%,var(--panel));background:var(--panel2);position:relative}.day.spacer{background:transparent;pointer-events:none}.day.has{color:var(--ink);font-weight:900;box-shadow:inset 0 0 0 1px var(--line)}.day.sel{background:var(--accent)!important;color:#fff!important}.day.today:not(.sel){box-shadow:inset 0 0 0 2px var(--accent);color:var(--accent);font-weight:900}.day.today.has:not(.sel){background:color-mix(in srgb,var(--accent) 8%,var(--panel2))}.day .cnt{font-size:10px;margin-left:3px;font-weight:900;color:var(--accent)}
+.panelHead{height:58px}.panelHead em{font-size:20px;letter-spacing:.06em;margin-top:4px}.datePanel{padding:14px}
+@media (max-width:380px){.calendar{gap:4px}.day{height:36px;font-size:13px}.monthNav{grid-template-columns:38px 1fr 38px}.monthArrow{width:34px;height:34px}.monthLabel{font-size:13px}.panelHead em{font-size:17px}.presetToolbar .chip{height:34px;font-size:11px}}

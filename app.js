@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:true,selDates:new Set(),openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const state={flights:[],allTime:true,rangeMode:'all',selDates:new Set(),openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -10,12 +10,15 @@ const M={l:46,r:14,t:18,b:34};
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 init();
-async function init(){bindUI();loadTheme();showLoad(true);await loadRepoLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
+async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
-  $('allTimeBtn').onclick=()=>{state.allTime=true;state.selDates.clear();state.single=null;fitView();renderAll();};
-  $('clearDatesBtn').onclick=()=>{state.selDates.clear();state.allTime=true;state.single=null;fitView();renderAll();};
+  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.single=null;fitView();renderAll();};
+  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.single=null;fitView();renderAll();};
+  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.single=null;fitView();renderAll();};
+  $('prevMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(-1);};
+  $('nextMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(1);};
   $('chartsTab').onclick=()=>setMode('charts'); $('tableTab').onclick=()=>setMode('table');
   $('fitBtn').onclick=()=>{fitView();drawChart();}; $('backBtn').onclick=()=>{state.single=null;state.focus=null;setActiveRecord(null);fitView();renderAll();};
   document.querySelectorAll('.recordCard').forEach(b=>b.onclick=()=>focusMetric(b.dataset.focus));
@@ -26,26 +29,68 @@ function bindUI(){
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
 function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
+
+const DB_NAME='f3k-logbook-db';
+const DB_STORE='files';
+function openLogDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE,{keyPath:'path'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function getImportedFiles(){try{const db=await openLogDb();return await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readonly');const req=tx.objectStore(DB_STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});}catch(e){return [];}}
+async function loadLogs(){const imported=await getImportedFiles(); const hasIndex=imported.some(f=>/index\.csv$/i.test(f.path||f.name||'')); if(hasIndex){loadImportedLogs(imported);return;} await loadRepoLogs();}
+function loadImportedLogs(files){
+  const map=new Map(files.map(f=>[(f.path||f.name||'').split('/').pop(),f.text||'']));
+  const indexTxt=map.get('index.csv')||'';
+  const rows=indexTxt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6);
+  const out=[];
+  for(const r of rows){const [date,time,lnh,maxAlt,duration,file]=r; const csv=map.get(file)||map.get(file.split('/').pop())||''; const pts=parseCsv(csv); if(pts.length){out.push({date,time,year:state.year,file,launchAlt:+lnh,maxAlt:+maxAlt,duration:+duration,gain:+maxAlt-+lnh,pts});}}
+  state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));
+  state.year=2026; initCalendarMonth(); fitView();
+}
+
 async function loadRepoLogs(){
   try{const txt=await fetch(LOG_DIR+'index.csv',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();}); const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6); const out=[];
     for(const r of rows){const [date,time,lnh,maxAlt,duration,file]=r; try{const csv=await fetch(LOG_DIR+file,{cache:'no-store'}).then(x=>x.ok?x.text():''); const pts=parseCsv(csv); if(pts.length){const yr=yearFromFile(file); out.push({date,time,year:yr,file,launchAlt:+lnh,maxAlt:+maxAlt,duration:+duration,gain:+maxAlt-+lnh,pts});}}catch{}}
-    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=2026; const months=[...new Set(state.flights.map(f=>+f.date.split('/')[1]))]; state.openMonth=months.includes(5)?5:(months[0]||1); fitView();
+    state.flights=out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time))); state.year=2026; initCalendarMonth(); fitView();
   }catch(e){state.flights=[];}
 }
 function yearFromFile(file){return 2026;}
+function initCalendarMonth(){const now=new Date(); state.year=2026; state.openMonth=(now.getFullYear()===2026?now.getMonth()+1:5);}
+function shiftMonth(delta){state.openMonth+=delta; if(state.openMonth<1){state.openMonth=12;state.year--;} if(state.openMonth>12){state.openMonth=1;state.year++;} renderDate();}
 function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} function timeNum(t){return Number(String(t).replace(/\D/g,''))||0;}
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
-function flightsBase(){let a=state.flights; if(!state.allTime&&state.selDates.size) a=a.filter(f=>state.selDates.has(f.date)); return a;}
+function flightsBase(){let a=state.flights; if(state.rangeMode==='last'){const last=[...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time)))[0]; return last?state.flights.filter(f=>f.date===last.date):[];} if(state.rangeMode==='last10'){return [...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time))).slice(0,10).sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));} if(state.rangeMode==='dates'&&state.selDates.size) return a.filter(f=>state.selDates.has(f.date)); return a;}
 function flightsShown(){let a=flightsBase(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
 function renderAll(){renderDate();renderSummary();renderTable();fitView(false);drawChart();}
-function renderDate(){
-  $('dateBody').classList.toggle('hidden',!state.openDate); $('dateChevron').textContent=state.openDate?'▴':'▾'; $('yearLabel').textContent=state.year;
-  const label=state.allTime?'ALL TIME':[...state.selDates].sort((a,b)=>dateNum(a)-dateNum(b)).join(', '); $('dateLabel').textContent=label; $('allTimeBtn').classList.toggle('active',state.allTime);
-  const byMonth={}; state.flights.forEach(f=>{const m=+f.date.split('/')[1]; byMonth[m]=(byMonth[m]||0)+1;}); const mg=$('monthGrid'); mg.innerHTML='';
-  for(let m=1;m<=12;m++){const b=document.createElement('button'); b.className='monthBtn '+(byMonth[m]?'has':'')+(state.openMonth===m?' active':''); b.innerHTML=`${MONTHS[m-1]}${byMonth[m]?` <small>${byMonth[m]}</small>`:''}`; b.onclick=()=>{state.openMonth=m;renderDate();}; mg.appendChild(b);}
-  renderCalendar(byMonth[state.openMonth]||0);
+function formatFullDate(d){const [dd,mm]=String(d).split('/');return `${dd}/${mm}/${state.year}`;}
+function dateLabelText(){
+  if(state.rangeMode==='all') return 'ALL TIME';
+  const a=flightsBase();
+  if(!a.length) return 'NO LOGS';
+  const ordered=[...a].sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
+  const first=ordered[0].date, last=ordered[ordered.length-1].date;
+  return first===last?formatFullDate(first):`${formatFullDate(first)} – ${formatFullDate(last)}`;
 }
-function renderCalendar(hasMonth){const wrap=$('calendarWrap');wrap.classList.toggle('hidden',!state.openDate); $('monthLabel').textContent=`${MONTHS[state.openMonth-1]} ${state.year}`; const byDate={}; state.flights.forEach(f=>{byDate[f.date]=(byDate[f.date]||0)+1;}); const cal=$('calendar'); cal.innerHTML=''; let firstDow=new Date(state.year,state.openMonth-1,1).getDay(); firstDow=(firstDow+6)%7; const days=new Date(state.year,state.openMonth,0).getDate(); for(let i=0;i<firstDow;i++){const d=document.createElement('div');d.className='day disabled';cal.appendChild(d);} for(let day=1;day<=days;day++){const date=String(day).padStart(2,'0')+'/'+String(state.openMonth).padStart(2,'0'); const cnt=byDate[date]||0; const b=document.createElement('button'); b.className='day '+(cnt?'has':'disabled')+(state.selDates.has(date)&&!state.allTime?' sel':''); b.disabled=!cnt; b.innerHTML=cnt?`${day}<span class="cnt">${cnt}</span>`:day; b.onclick=()=>{state.allTime=false; state.single=null; if(state.selDates.has(date))state.selDates.delete(date); else state.selDates.add(date); if(!state.selDates.size)state.allTime=true; fitView(); renderAll();}; cal.appendChild(b);}}
+function renderDate(){
+  $('dateBody').classList.toggle('hidden',!state.openDate); $('dateChevron').textContent=state.openDate?'▴':'▾';
+  $('dateLabel').textContent=dateLabelText();
+  $('lastBtn').classList.toggle('active',state.rangeMode==='last');
+  $('last10Btn').classList.toggle('active',state.rangeMode==='last10');
+  $('allTimeBtn').classList.toggle('active',state.rangeMode==='all');
+  renderCalendar();
+}
+function renderCalendar(){
+  $('monthLabel').textContent=`${MONTHS[state.openMonth-1]} ${state.year}`;
+  const byDate={}; state.flights.forEach(f=>{byDate[f.date]=(byDate[f.date]||0)+1;});
+  const cal=$('calendar'); cal.innerHTML='';
+  const today=new Date(); const todayDate=String(today.getDate()).padStart(2,'0')+'/'+String(today.getMonth()+1).padStart(2,'0'); const isThisMonth=today.getFullYear()===state.year && today.getMonth()+1===state.openMonth;
+  let firstDow=new Date(state.year,state.openMonth-1,1).getDay(); firstDow=(firstDow+6)%7; const days=new Date(state.year,state.openMonth,0).getDate();
+  for(let i=0;i<firstDow;i++){const d=document.createElement('div');d.className='day spacer';cal.appendChild(d);}
+  for(let day=1;day<=days;day++){
+    const date=String(day).padStart(2,'0')+'/'+String(state.openMonth).padStart(2,'0'); const cnt=byDate[date]||0;
+    const b=document.createElement('button'); b.className='day '+(cnt?'has':'')+(state.rangeMode==='dates'&&state.selDates.has(date)?' sel':'')+(isThisMonth&&date===todayDate?' today':'');
+    b.innerHTML=cnt?`${day}<span class="cnt">${cnt}</span>`:`${day}`;
+    b.onclick=()=>{state.rangeMode='dates';state.allTime=false;state.single=null; if(state.selDates.has(date))state.selDates.delete(date); else state.selDates.add(date); if(!state.selDates.size){state.rangeMode='all';state.allTime=true;} fitView(); renderAll();};
+    cal.appendChild(b);
+  }
+}
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
 function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setMode('charts'); fitView(); renderAll();}
