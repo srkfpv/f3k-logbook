@@ -77,7 +77,7 @@ function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(s
 function colorForFlight(f){
   if(state.single && f.file===state.single.file){
     const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[state.focus];
-    return key?chartRecordColor():chartBaseColor();
+    return chartRecordColor();
   }
   const base=flightsBase();
   if(best(base,'maxAlt')?.file===f.file) return chartRecordColor();
