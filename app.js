@@ -6,7 +6,7 @@ function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
 const MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const LOG_DIR='logs/';
-const M={l:42,r:12,t:14,b:30};
+const M={l:46,r:14,t:18,b:34};
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 init();
@@ -86,13 +86,16 @@ function colorForFlight(f){
   if(best(base,'duration')?.file===f.file) return chartRecordColor();
   return chartBaseColor();
 }
-function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b);}
+function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b); drawAxisLabels(w,h,muted);}
+function drawAxisLabels(w,h,color){ctx.save();ctx.fillStyle=color;ctx.globalAlpha=.58;ctx.font='800 8px system-ui';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText('meters',M.l+4,M.t+8);ctx.textAlign='right';ctx.fillText('seconds',w-M.r-4,h-M.b-8);ctx.restore();}
 function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5); ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5); ctx.stroke();}
 function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}
 function ticks(a,b,n){const span=b-a;if(span<=0)return[a];const raw=span/n, mag=10**Math.floor(Math.log10(raw)), step=(raw/mag>=5?5:raw/mag>=2?2:1)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-6;v+=step)out.push(v);return out;}
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function pointerDown(e){
-  if(e.pointerType==='mouse') frame.setPointerCapture(e.pointerId);
+  if(e.pointerType==='mouse'||e.pointerType==='touch'){
+    try{frame.setPointerCapture(e.pointerId);}catch{}
+  }
   const p=point(e);
   state.pointers.set(e.pointerId,p);
   if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,mode:null};
@@ -114,12 +117,8 @@ function pointerMove(e){
     state.x0=center-newSpan/2; state.x1=center+newSpan/2; clampView(); drawChart(); return;
   }
   if(state.drag&&state.pointers.size===1){
-    const dx=p.x-state.drag.x, dy=p.y-state.drag.y;
-    if(!state.drag.mode){
-      if(Math.abs(dy)>Math.abs(dx)*1.15 && Math.abs(dy)>6){state.drag.mode='scroll'; return;}
-      if(Math.abs(dx)>8){state.drag.mode='pan';}
-    }
-    if(state.drag.mode==='scroll') return;
+    const dx=p.x-state.drag.x, adx=Math.abs(dx);
+    if(!state.drag.mode&&adx>5) state.drag.mode='pan';
     if(state.drag.mode==='pan'){
       e.preventDefault();
       const span=state.drag.x1-state.drag.x0, dt=-dx/(w-M.l-M.r)*span;
