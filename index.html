@@ -24,15 +24,16 @@
     </header>
 
     <section class="panel datePanel">
+      <div class="sectionKicker">SELECTED PERIOD</div>
       <button id="dateToggle" class="panelHead" type="button">
-        <span><b>DATE</b><em id="dateLabel">ALL TIME</em></span>
+        <span><em id="dateLabel">LAST SESSION</em></span>
         <i id="dateChevron">▾</i>
       </button>
       <div id="dateBody" class="dateBody hidden">
         <div class="dateToolbar presetToolbar">
-          <button id="lastBtn" class="chip">LAST</button>
-          <button id="last10Btn" class="chip">LAST 10</button>
-          <button id="allTimeBtn" class="chip active">ALL</button>
+          <button id="lastBtn" class="tab periodTab active">LAST SESSION</button>
+          <button id="last10Btn" class="tab periodTab">LAST 10</button>
+          <button id="allTimeBtn" class="tab periodTab">ALL</button>
         </div>
         <div id="calendarWrap" class="calendarWrap">
           <div class="monthNav">
@@ -62,7 +63,7 @@
 
     <section class="panel detailsPanel">
       <div class="detailsHead">
-        <div class="sectionKicker">FLIGHT DATA</div>
+        <div class="sectionKicker">FLIGHTS DATA</div>
         <div class="tabs">
           <button id="chartsTab" class="tab active">CHART</button>
           <button id="tableTab" class="tab">TABLE</button>
@@ -89,7 +90,7 @@
       </section>
     </section>
 
-    <footer class="footer"><a href="upload.html">IMPORT LOGS</a><span>F3K LOGBOOK by SRK.FPV</span><em>ver. 20.0</em></footer>
+    <footer class="footer"><a href="upload.html">IMPORT LOGS</a><span>F3K LOGBOOK by SRK.FPV</span><em>ver. 22.0</em></footer>
   </main>
   <script src="app.js"></script>
 </body>

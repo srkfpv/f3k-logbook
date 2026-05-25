@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:true,rangeMode:'all',selDates:new Set(),openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -14,9 +14,9 @@ async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showL
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
-  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.single=null;fitView();renderAll();};
-  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.single=null;fitView();renderAll();};
-  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.single=null;fitView();renderAll();};
+  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
+  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
+  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
   $('prevMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(-1);};
   $('nextMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(1);};
   $('chartsTab').onclick=()=>setMode('charts'); $('tableTab').onclick=()=>setMode('table');
@@ -28,7 +28,7 @@ function bindUI(){
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
-function setMode(m){state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
+function setMode(m){if(m==='table'){state.focus=null;state.single=null;setActiveRecord(null);} state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
 
 const DB_NAME='f3k-logbook-db';
 const DB_STORE='files';
@@ -61,8 +61,12 @@ function flightsShown(){let a=flightsBase(); if(state.single) a=a.filter(f=>f.fi
 function renderAll(){renderDate();renderSummary();renderTable();fitView(false);drawChart();}
 function formatFullDate(d){const [dd,mm]=String(d).split('/');return `${dd}/${mm}/${state.year}`;}
 function dateLabelText(){
-  if(state.rangeMode==='all') return 'ALL TIME';
+  if(state.rangeMode==='last') return 'LAST SESSION';
+  if(state.rangeMode==='last10') return 'LAST 10 SESSIONS';
+  if(state.rangeMode==='all') return 'ALL SESSIONS';
   const a=flightsBase();
+  if(!a.length && state.rangeStart && !state.rangeEnd) return formatFullDate(state.rangeStart);
+  if(!a.length && state.rangeStart && state.rangeEnd) return `${formatFullDate(state.rangeStart)} – ${formatFullDate(state.rangeEnd)}`;
   if(!a.length) return 'NO LOGS';
   const ordered=[...a].sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
   const first=ordered[0].date, last=ordered[ordered.length-1].date;
@@ -85,12 +89,34 @@ function renderCalendar(){
   for(let i=0;i<firstDow;i++){const d=document.createElement('div');d.className='day spacer';cal.appendChild(d);}
   for(let day=1;day<=days;day++){
     const date=String(day).padStart(2,'0')+'/'+String(state.openMonth).padStart(2,'0'); const cnt=byDate[date]||0;
-    const b=document.createElement('button'); b.className='day '+(cnt?'has':'')+(state.rangeMode==='dates'&&state.selDates.has(date)?' sel':'')+(isThisMonth&&date===todayDate?' today':'');
+    const isSel=state.rangeMode==='dates'&&state.selDates.has(date); const isEdge=isSel&&(date===state.rangeStart||date===state.rangeEnd); const b=document.createElement('button'); b.className='day '+(cnt?'has':'')+(isSel?' sel inRange':'')+(isEdge?' rangeEdge':'')+(isThisMonth&&date===todayDate?' today':'');
     b.innerHTML=cnt?`${day}<span class="cnt">${cnt}</span>`:`${day}`;
-    b.onclick=()=>{state.rangeMode='dates';state.allTime=false;state.single=null; if(state.selDates.has(date))state.selDates.delete(date); else state.selDates.add(date); if(!state.selDates.size){state.rangeMode='all';state.allTime=true;} fitView(); renderAll();};
+    b.onclick=(e)=>selectCalendarDate(date,e.detail>=2);
     cal.appendChild(b);
   }
 }
+
+function datesBetween(a,b){
+  let start=dateNum(a), end=dateNum(b); if(start>end){const t=start;start=end;end=t;}
+  const out=[];
+  for(let m=1;m<=12;m++){
+    const days=new Date(state.year,m,0).getDate();
+    for(let d=1;d<=days;d++){
+      const key=String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0');
+      const n=dateNum(key); if(n>=start&&n<=end) out.push(key);
+    }
+  }
+  return out;
+}
+function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
+function selectCalendarDate(date,isDouble){
+  state.rangeMode='dates'; state.allTime=false; state.single=null; state.focus=null; setActiveRecord(null);
+  if(isDouble){state.rangeStart=date; state.rangeEnd=date; applyDateRange(date,date); fitView(); renderAll(); return;}
+  if(!state.rangeStart || state.rangeEnd){state.rangeStart=date; state.rangeEnd=null; state.selDates.clear(); state.selDates.add(date);}
+  else{state.rangeEnd=date; applyDateRange(state.rangeStart,state.rangeEnd);}
+  fitView(); renderAll();
+}
+
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
 function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setMode('charts'); fitView(); renderAll();}
