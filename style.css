@@ -258,3 +258,59 @@ button[data-mode="flight"]{
 .calendarWrap.hidden{
   display:none !important;
 }
+
+/* v32 cosmetic refinements */
+
+/* Select section: about 12% tighter vertically */
+.datePanel{
+  padding-top:calc(var(--panel-pad, 14px) * .88) !important;
+  padding-bottom:calc(var(--panel-pad, 14px) * .88) !important;
+}
+.datePanel .panelHead{
+  min-height:calc(48px * .88) !important;
+  padding-top:8px !important;
+  padding-bottom:8px !important;
+}
+.dateBody{
+  padding-top:8px !important;
+}
+.calendarWrap{
+  margin-top:8px !important;
+}
+.monthNav{
+  margin-bottom:6px !important;
+}
+.calendar{
+  gap:4px !important;
+}
+.day{
+  min-height:34px !important;
+}
+
+/* Select preset buttons match Flight Details segmented buttons */
+.presetToolbar .tab,
+.periodTab{
+  height:32px !important;
+  min-height:32px !important;
+  padding:0 8px !important;
+  border-radius:999px !important;
+  font-size:10px !important;
+  line-height:32px !important;
+  font-weight:700 !important;
+  letter-spacing:.045em !important;
+}
+
+/* Reduce empty scroll space below footer/version by about half */
+.app{
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 18px) !important;
+}
+footer,
+.footer,
+.appFooter{
+  margin-bottom:6px !important;
+  padding-bottom:6px !important;
+}
+.version{
+  margin-bottom:0 !important;
+  padding-bottom:0 !important;
+}
