@@ -57,3 +57,68 @@
 
 /* v25 chart UX refinements */
 .chartFitBtn{display:none!important}
+
+/* v26 Flights Data UX */
+.dataTabs{
+  width:100%;
+  align-self:stretch;
+}
+.detailsPanel{
+  min-height:calc(38dvh + 128px);
+}
+.tablePanel{
+  height:calc(38dvh + 52px);
+  min-height:290px;
+  position:relative;
+}
+.tablePanel::after{
+  content:"";
+  position:sticky;
+  display:block;
+  left:0;
+  right:0;
+  bottom:0;
+  height:28px;
+  margin-top:-28px;
+  pointer-events:none;
+  background:linear-gradient(to bottom, rgba(255,255,255,0), var(--panel2) 82%);
+  opacity:.95;
+  transition:opacity .16s ease;
+}
+.tablePanel.atBottom::after{
+  opacity:0;
+}
+:root:not(.light) .tablePanel::after{
+  background:linear-gradient(to bottom, rgba(20,20,20,0), var(--panel2) 82%);
+}
+tbody tr{
+  cursor:pointer;
+}
+tbody td:last-child{
+  position:relative;
+  padding-right:18px;
+}
+.rowChevron{
+  position:absolute;
+  right:5px;
+  top:50%;
+  transform:translateY(-50%);
+  font-style:normal;
+  font-size:16px;
+  line-height:1;
+  color:var(--muted);
+  opacity:.42;
+}
+tbody tr:active .rowChevron,
+tbody tr.selectedRow .rowChevron{
+  color:var(--accent);
+  opacity:.9;
+}
+.sortable.sorted:after{
+  font-size:9px;
+  margin-left:4px;
+}
+@media (orientation:landscape) and (max-height:520px){
+  .detailsPanel{min-height:360px}
+  .tablePanel{height:270px;min-height:270px}
+}

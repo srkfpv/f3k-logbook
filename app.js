@@ -22,6 +22,7 @@ function bindUI(){
   $('sessionTab').onclick=()=>setDataMode('session',{resetTable:true});
   $('flightTab').onclick=()=>setDataMode('flight');
   $('tableTab').onclick=()=>setDataMode('table');
+  $('tablePanel').addEventListener('scroll',()=>{state.tableScroll=$('tablePanel').scrollTop||0;updateTableFade();},{passive:true});
   $('prevFlightBtn').onclick=()=>stepFlight(-1);
   $('nextFlightBtn').onclick=()=>stepFlight(1);
   $('chartFitBtn').onclick=(e)=>{e.stopPropagation();};
@@ -39,7 +40,7 @@ function setDataMode(m,opt={}){
   state.dataMode=m;
   if(m==='session'){
     state.viewMode='charts'; state.single=null; state.focus=null; setActiveRecord(null);
-    if(opt.resetTable){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0;}
+    if(opt.resetTable){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0; updateTableFade();}
   }
   if(m==='flight'){
     state.viewMode='charts';
@@ -54,13 +55,20 @@ function setDataMode(m,opt={}){
   $('chartPanel').classList.toggle('hidden',m==='table');
   $('tablePanel').classList.toggle('hidden',m!=='table');
   renderTableHeader();
-  if(m==='table') setTimeout(()=>$('tablePanel').scrollTop=state.tableScroll||0,0);
+  if(m==='table') setTimeout(()=>{ $('tablePanel').scrollTop=state.tableScroll||0; updateTableFade(); },0);
   if(m!=='table'){fitView(false);setTimeout(drawChart,0);}
 }
 function setMode(m){setDataMode(m==='table'?'table':'session');}
 function flightIndex(){const a=flightsBase(); if(!a.length||!state.single)return -1; return a.findIndex(f=>f.file===state.single.file);}
 function stepFlight(dir){const a=flightsBase(); if(!a.length)return; let i=flightIndex(); if(i<0)i=0; i=(i+dir+a.length)%a.length; state.single=a[i]; state.focus=null; setActiveRecord(null); setDataMode('flight'); fitView(); renderAll();}
-function resetTableState(){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0;}
+function resetTableState(){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0;updateTableFade();}
+function updateTableFade(){
+  const p=$('tablePanel');
+  if(!p) return;
+  const atBottom = p.scrollTop + p.clientHeight >= p.scrollHeight - 3;
+  p.classList.toggle('atBottom', atBottom);
+}
+
 
 
 const DB_NAME='f3k-logbook-db';
@@ -167,10 +175,12 @@ function renderTableHeader(){
   });
 }
 function sortBy(k){
-  state.sortDir=state.sortKey===k?-state.sortDir:(k==='datetime'||k==='time'?-1:1);
-  state.sortKey=k;
+  state.sortDir = state.sortKey===k ? -state.sortDir : -1;
+  state.sortKey = k;
   renderTable(); renderTableHeader();
-  $('tablePanel').scrollTop=0; state.tableScroll=0;
+  $('tablePanel').scrollTop = 0;
+  state.tableScroll = 0;
+  updateTableFade();
 }
 function renderTable(){
   const tb=$('logRows'); tb.innerHTML='';
@@ -183,10 +193,11 @@ function renderTable(){
   rows.forEach((f,idx)=>{
     const tr=document.createElement('tr');
     tr.className=state.single&&state.single.file===f.file?'selectedRow':'';
-    tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${fmtGain(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}">${fmtTime(f.duration)}</td>`;
+    tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${fmtGain(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}"><span>${fmtTime(f.duration)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick=()=>{state.tableScroll=$('tablePanel').scrollTop||0;state.single=f;state.focus=null;setActiveRecord(null);setDataMode('flight');fitView();renderAll();};
     tb.appendChild(tr);
   });
+  updateTableFade();
 }
 function fmtGain(v){v=Math.round(v||0);return v===0?'–':(v>0?'+'+v:String(v));}
 function fmtTime(s){s=Math.round(s||0);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} function fmtHMS(s){s=Math.round(s||0);return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
@@ -206,7 +217,7 @@ function updateChartHeader(){
     $('chartSub').textContent=`FLIGHT ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
   }else{
     $('chartLabel').textContent='ALL FLIGHTS';
-    $('chartSub').textContent='SESSION OVERLAY';
+    $('chartSub').textContent='OVERLAY';
   }
 }
 function drawSingleMarkers(f,w,h){
