@@ -1,7 +1,6 @@
-const APP_BUILD='45.0';
-const LOGS_CACHE_BUST='f3k-v42-hardfix-'+Date.now();
+const APP_BUILD='39.0';
+const LOGS_CACHE_BUST='f3k-v37-force-20260526-'+Date.now();
 const $=id=>document.getElementById(id);
-
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false,indexRows:[],loadedFiles:new Set(),loadingFiles:new Set(),loadTotal:0,loadDone:0,bootOverlay:true};
 function chartBaseColor(){return css('--baseChart')||'#888';}
@@ -17,33 +16,42 @@ async function init(){
   bindUI();
   loadTheme();
   showLoad(true);
-  try{
-    await loadLogs();
-    await ensureFlightsForCurrentRange('loading last session');
-    renderAll();
-    setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
-    requestAnimationFrame(drawChart);
-  }catch(e){
-    console.error(e);
-    setLogStatus(`ver. ${APP_BUILD} • logs: error`);
-    renderAll();
-  }finally{
-    showLoad(false);
-  }
+  setBootProgress(0,1,'reading index');
+  await loadLogs();
+  await ensureFlightsForCurrentRange('loading last session');
+  showLoad(false);
+  renderAll();
+  setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
+  hideBootLoader();
+  requestAnimationFrame(drawChart);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 
-
-
-
-
-function updateLoadProgress(done,total,label='loading logs'){
-  const pct = total > 0 ? Math.max(0,Math.min(100,Math.round((done/total)*100))) : 0;
-  const el=document.getElementById('logStatus');
-  if(el) el.textContent=`ver. ${APP_BUILD} • ${label} ${pct}%`;
+function setBootProgress(done,total,label='loading logs'){
+  const wrap=document.getElementById('bootLoader');
+  const pctEl=document.getElementById('bootPct');
+  const labelEl=document.getElementById('bootLabel');
+  const bar=document.getElementById('bootBar');
+  if(total<=0){ if(pctEl)pctEl.textContent='0%'; if(labelEl)labelEl.textContent=label; if(bar)bar.style.width='0%'; return; }
+  const pct=Math.max(0,Math.min(100,Math.round((done/total)*100)));
+  if(pctEl)pctEl.textContent=pct+'%';
+  if(labelEl)labelEl.textContent=label;
+  if(bar)bar.style.width=pct+'%';
+}
+function hideBootLoader(){
+  const wrap=document.getElementById('bootLoader');
+  if(wrap){ wrap.classList.add('hidden'); setTimeout(()=>wrap.remove(),380); }
 }
 
-
+  const el=document.getElementById('logStatus');
+  if(!el) return;
+  if(total<=0){
+    el.textContent='ver. 39.0 • loading logs…';
+    return;
+  }
+  const pct=Math.round((done/total)*100);
+  el.textContent=`ver. 39.0 • loading ${pct}%`;
+}
 
 function showLoad(v){
 state.loading=v;$('loader').classList.toggle('hidden',!v);}
@@ -120,7 +128,6 @@ async function loadRepoLogs(){
   }catch(e){
     console.warn(e);
     state.flights=[];
-    throw e;
   }
 }
 
@@ -136,18 +143,15 @@ function setPeriodModeSilent(mode){
 async function loadFlightFile(f){
   if(!f || f.loaded || state.loadingFiles.has(f.file)) return f;
   state.loadingFiles.add(f.file);
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
   try{
-    const csv=await fetch(bustUrl(LOG_DIR+f.file),{cache:'no-store',signal:controller.signal}).then(x=>x.ok?x.text():'');
+    const csv=await fetch(bustUrl(LOG_DIR+f.file),{cache:'no-store'}).then(x=>x.ok?x.text():'');
     const pts=parseCsv(csv);
     f.pts=pts;
     f.loaded=pts.length>0;
     state.loadedFiles.add(f.file);
   }catch(e){
-    console.warn('missing/timeout log',f.file,e);
+    console.warn('missing log',f.file,e);
   }finally{
-    clearTimeout(timer);
     state.loadingFiles.delete(f.file);
   }
   return f;
@@ -157,22 +161,20 @@ async function ensureFlightsLoaded(list,label='loading logs'){
     .map(file=>state.flights.find(f=>f.file===file))
     .filter(Boolean);
   const total=need.length;
-  if(!total){
-    updateLoadProgress(1,1,'ready');
-    return;
-  }
+  if(!total) return;
   state.loading=true;
   state.loadTotal=total;
   state.loadDone=0;
-  updateLoadProgress(0,total,label);
+  setBootProgress(0,total,label);
+  updateLoadProgress(0,total);
   const batch=4;
   for(let i=0;i<need.length;i+=batch){
     await Promise.all(need.slice(i,i+batch).map(async f=>{
       await loadFlightFile(f);
       state.loadDone++;
-      updateLoadProgress(state.loadDone,total,label);
+      setBootProgress(state.loadDone,total,label);
+      updateLoadProgress(state.loadDone,total);
     }));
-    drawChart();
   }
   state.loading=false;
   setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
@@ -489,6 +491,7 @@ function drawSingleMarkers(f,w,h){
     }
   }
 
+  if(__animClipApplied){ctx.restore(); __animClipApplied=false;}
   ctx.restore();
 }
 function drawBubble(label,px,py,w,h,type,color){
