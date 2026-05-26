@@ -1,6 +1,26 @@
-const APP_BUILD='41.0';
-const LOGS_CACHE_BUST='f3k-v41-loader-'+Date.now();
+const APP_BUILD='42.0';
+const LOGS_CACHE_BUST='f3k-v42-hardfix-'+Date.now();
 const $=id=>document.getElementById(id);
+
+(function(){
+  window.__F3K_BOOT_PCT__ = 0;
+  window.__F3K_BOOT_TIMER__ = setInterval(function(){
+    var wrap=document.getElementById('bootLoader');
+    if(!wrap){ clearInterval(window.__F3K_BOOT_TIMER__); return; }
+    if(wrap.classList.contains('hidden')){ clearInterval(window.__F3K_BOOT_TIMER__); return; }
+    window.__F3K_BOOT_PCT__ = Math.min(92, window.__F3K_BOOT_PCT__ + 2);
+    var pct=window.__F3K_BOOT_PCT__;
+    var pctEl=document.getElementById('bootPct');
+    var bar=document.getElementById('bootBar');
+    var plane=document.getElementById('bootPlane');
+    var label=document.getElementById('bootLabel');
+    if(pctEl) pctEl.textContent=pct+'%';
+    if(bar) bar.style.width=pct+'%';
+    if(plane) plane.style.left=pct+'%';
+    if(label) label.textContent='loading logs';
+  },120);
+})();
+
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false,indexRows:[],loadedFiles:new Set(),loadingFiles:new Set(),loadTotal:0,loadDone:0,bootOverlay:true};
 function chartBaseColor(){return css('--baseChart')||'#888';}
@@ -16,43 +36,49 @@ async function init(){
   bindUI();
   loadTheme();
   showLoad(true);
-  setBootProgress(0,1,'reading index');
-  await loadLogs();
-  setBootProgress(8,100,'loading last session');
-  try{await ensureFlightsForCurrentRange('loading last session');}catch(e){console.warn(e);}
-  showLoad(false);
-  renderAll();
-  setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
-  setBootProgress(100,100,'ready');
-  setTimeout(hideBootLoader,220);
-  requestAnimationFrame(drawChart);
+  setBootProgress(4,100,'reading index');
+  try{
+    await loadLogs();
+    setBootProgress(18,100,'loading last session');
+    await ensureFlightsForCurrentRange('loading last session');
+    renderAll();
+    setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
+    requestAnimationFrame(drawChart);
+  }catch(e){
+    console.error(e);
+    setLogStatus(`ver. ${APP_BUILD} • logs: error`);
+    renderAll();
+  }finally{
+    showLoad(false);
+    hideBootLoader();
+  }
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 
 
 function setBootProgress(done,total,label='loading logs'){
-  const pctEl=document.getElementById('bootPct');
-  const labelEl=document.getElementById('bootLabel');
-  const bar=document.getElementById('bootBar');
-  const plane=document.getElementById('bootPlane');
-  let pct=0;
-  if(total>0){
-    pct=Math.max(0,Math.min(100,Math.round((done/total)*100)));
-  }else if(done>0){
-    pct=Math.max(0,Math.min(100,Math.round(done)));
-  }
+  var pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : Math.max(0, Math.min(100, Math.round(done||0)));
+  window.__F3K_BOOT_PCT__ = Math.max(window.__F3K_BOOT_PCT__||0, pct);
+  pct = window.__F3K_BOOT_PCT__;
+  var pctEl=document.getElementById('bootPct');
+  var labelEl=document.getElementById('bootLabel');
+  var bar=document.getElementById('bootBar');
+  var plane=document.getElementById('bootPlane');
   if(pctEl)pctEl.textContent=pct+'%';
   if(labelEl)labelEl.textContent=label;
   if(bar)bar.style.width=pct+'%';
   if(plane)plane.style.left=pct+'%';
 }
 function hideBootLoader(){
-  const wrap=document.getElementById('bootLoader');
-  if(wrap){ wrap.classList.add('hidden'); setTimeout(()=>wrap.remove(),360); }
+  window.__F3K_BOOT_PCT__ = 100;
+  setBootProgress(100,100,'ready');
+  if(window.__F3K_BOOT_TIMER__) clearInterval(window.__F3K_BOOT_TIMER__);
+  var wrap=document.getElementById('bootLoader');
+  if(wrap){ setTimeout(function(){ wrap.classList.add('hidden'); setTimeout(function(){ if(wrap&&wrap.parentNode) wrap.parentNode.removeChild(wrap); },360); },220); }
 }
 
 function updateLoadProgress(done,total,label='loading logs'){
-  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : 0;
+  const pct = total > 0 ? Math.max(0,Math.min(100,Math.round((done/total)*100))) : 0;
   const el=document.getElementById('logStatus');
   if(el) el.textContent=`ver. ${APP_BUILD} • loading ${pct}%`;
   setBootProgress(pct,100,label);
@@ -498,7 +524,6 @@ function drawSingleMarkers(f,w,h){
     }
   }
 
-  if(__animClipApplied){ctx.restore(); __animClipApplied=false;}
   ctx.restore();
 }
 function drawBubble(label,px,py,w,h,type,color){

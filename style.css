@@ -454,3 +454,89 @@ footer,
   line-height:1;
   transition:left .18s ease;
 }
+
+/* v42 hard loader fix */
+.bootLoader{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:99999 !important;
+  display:grid !important;
+  place-items:center !important;
+  background:rgba(246,246,248,.78) !important;
+  backdrop-filter:blur(12px) !important;
+  -webkit-backdrop-filter:blur(12px) !important;
+}
+.bootLoader.hidden{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+  transition:opacity .3s ease, visibility .3s ease !important;
+}
+.bootBox{
+  width:min(260px,76vw) !important;
+  padding:20px 20px 18px !important;
+  border-radius:24px !important;
+  background:rgba(255,255,255,.94) !important;
+  box-shadow:0 18px 64px rgba(20,20,20,.13) !important;
+  border:1px solid rgba(20,20,20,.08) !important;
+  color:#171717 !important;
+}
+.bootTop{
+  display:flex !important;
+  align-items:flex-end !important;
+  justify-content:space-between !important;
+  gap:14px !important;
+}
+.bootPct{
+  font-size:34px !important;
+  line-height:.95 !important;
+  font-weight:760 !important;
+  letter-spacing:-.055em !important;
+  color:#171717 !important;
+}
+.bootLabel{
+  padding-bottom:2px !important;
+  font-size:10px !important;
+  line-height:1 !important;
+  font-weight:700 !important;
+  letter-spacing:.075em !important;
+  text-transform:uppercase !important;
+  color:rgba(23,23,23,.48) !important;
+  text-align:right !important;
+  white-space:nowrap !important;
+}
+.bootTrack{
+  position:relative !important;
+  margin-top:18px !important;
+  height:4px !important;
+  border-radius:999px !important;
+  background:rgba(23,23,23,.11) !important;
+  overflow:visible !important;
+}
+.bootBar{
+  position:absolute !important;
+  left:0 !important;
+  top:0 !important;
+  height:100% !important;
+  width:0%;
+  border-radius:999px !important;
+  background:var(--accent,#db2777) !important;
+  transition:width .18s ease !important;
+}
+.bootPlane{
+  position:absolute !important;
+  top:50% !important;
+  left:0%;
+  transform:translate(-50%,-56%) !important;
+  width:22px !important;
+  height:22px !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:50% !important;
+  color:var(--accent,#db2777) !important;
+  background:#fff !important;
+  box-shadow:0 3px 10px rgba(0,0,0,.12) !important;
+  font-size:12px !important;
+  line-height:1 !important;
+  transition:left .18s ease !important;
+}
