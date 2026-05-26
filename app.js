@@ -17,7 +17,7 @@ function bindUI(){
   $('lastBtn').onclick=()=>{setPeriodMode('last');};
   $('last10Btn').onclick=()=>{setPeriodMode('last10');};
   $('allTimeBtn').onclick=()=>{setPeriodMode('all');};
-  $('byDateBtn').onclick=()=>{state.rangeMode='dates';state.allTime=false;state.single=null;state.focus=null;setActiveRecord(null);setDataMode('session',{resetTable:true});fitView();renderAll();};
+  $('byDateBtn').onclick=()=>{state.openDate=true;state.rangeMode='dates';state.allTime=false;state.single=null;state.focus=null;setActiveRecord(null);setDataMode('session',{resetTable:true});fitView();renderAll();};
   $('prevMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(-1);};
   $('nextMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(1);};
   $('sessionTab').onclick=()=>setDataMode('session',{resetTable:true});
@@ -99,15 +99,25 @@ function shiftMonth(delta){state.openMonth+=delta; if(state.openMonth<1){state.o
 function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} function timeNum(t){return Number(String(t).replace(/\D/g,''))||0;}
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
 
+function flightDateKey(f){
+  return String(f.date||'');
+}
+function flightDateSortValue(f){
+  return (Number(f.year)||state.year||2026)*10000 + dateNum(f.date||'00/00');
+}
 function sessionDates(desc=true){
   const map=new Map();
   state.flights.forEach(f=>{
-    if(!map.has(f.date)) map.set(f.date,{date:f.date, year:f.year||state.year, n:dateNum(f.date)});
+    const d=flightDateKey(f);
+    if(!d) return;
+    const v=flightDateSortValue(f);
+    if(!map.has(d) || v>map.get(d).v) map.set(d,{date:d,v});
   });
-  const arr=[...map.values()].sort((a,b)=>(b.year*10000+b.n)-(a.year*10000+a.n));
-  return desc?arr:arr.reverse();
+  const arr=[...map.values()].sort((a,b)=>desc?b.v-a.v:a.v-b.v);
+  return arr;
 }
 function setPeriodMode(mode){
+  state.openDate=true;
   state.rangeMode=mode;
   state.allTime=mode==='all';
   state.selDates.clear();
@@ -137,16 +147,12 @@ function selectedSessionDates(){
 
 function flightsBase(){
   const a=state.flights;
-  if(state.rangeMode==='last'){
-    const ds=selectedSessionDates();
-    return ds.length?a.filter(f=>f.date===ds[0]):[];
+  if(state.rangeMode==='last' || state.rangeMode==='last10' || state.rangeMode==='all' || state.rangeMode==='dates'){
+    const ds = new Set(selectedSessionDates());
+    if(state.rangeMode==='all') return a;
+    if(ds.size) return a.filter(f=>ds.has(f.date)).sort((x,y)=>(flightDateSortValue(x)+timeNum(x.time))-(flightDateSortValue(y)+timeNum(y.time)));
+    return [];
   }
-  if(state.rangeMode==='last10'){
-    const ds=new Set(selectedSessionDates());
-    return a.filter(f=>ds.has(f.date)).sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
-  }
-  if(state.rangeMode==='all') return a;
-  if(state.rangeMode==='dates'&&state.selDates.size) return a.filter(f=>state.selDates.has(f.date));
   return a;
 }
 function flightsShown(){let a=flightsBase(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
@@ -156,22 +162,23 @@ function dateLabelText(){
   if(state.rangeMode==='last') return 'LAST SESSION';
   if(state.rangeMode==='last10') return 'LAST 10 SESSIONS';
   if(state.rangeMode==='all') return 'ALL SESSIONS';
-  const a=flightsBase();
-  if(!a.length && state.rangeStart && !state.rangeEnd) return formatFullDate(state.rangeStart);
-  if(!a.length && state.rangeStart && state.rangeEnd) return `${formatFullDate(state.rangeStart)} – ${formatFullDate(state.rangeEnd)}`;
-  if(!a.length) return 'BY DATE';
-  const ordered=[...a].sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
-  const first=ordered[0].date, last=ordered[ordered.length-1].date;
-  return first===last?formatFullDate(first):`${formatFullDate(first)} – ${formatFullDate(last)}`;
+  if(state.rangeMode==='dates'){
+    if(state.rangeStart && state.rangeEnd) return `${formatFullDate(state.rangeStart)} – ${formatFullDate(state.rangeEnd)}`;
+    if(state.rangeStart) return formatFullDate(state.rangeStart);
+    return 'BY DATE';
+  }
+  return 'SELECT';
 }
 function renderDate(){
-  $('dateBody').classList.toggle('hidden',!state.openDate); $('dateChevron').textContent=state.openDate?'▴':'▾';
+  $('dateBody').classList.toggle('hidden',!state.openDate);
+  $('dateChevron').textContent=state.openDate?'▴':'▾';
   $('dateLabel').textContent=dateLabelText();
   $('lastBtn').classList.toggle('active',state.rangeMode==='last');
   $('last10Btn').classList.toggle('active',state.rangeMode==='last10');
   $('allTimeBtn').classList.toggle('active',state.rangeMode==='all');
   $('byDateBtn').classList.toggle('active',state.rangeMode==='dates');
-  $('calendarWrap').classList.toggle('hidden',state.rangeMode!=='dates');
+  const showCal = state.openDate && state.rangeMode==='dates';
+  $('calendarWrap').classList.toggle('hidden',!showCal);
   renderCalendar();
 }
 function renderCalendar(){
@@ -205,11 +212,32 @@ function datesBetween(a,b){
 }
 function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
 function selectCalendarDate(date,isDouble){
-  state.rangeMode='dates'; state.allTime=false; state.single=null; state.focus=null; setActiveRecord(null); setDataMode('session',{resetTable:true});
-  if(isDouble){state.rangeStart=date; state.rangeEnd=date; applyDateRange(date,date); fitView(); renderAll(); return;}
-  if(!state.rangeStart || state.rangeEnd){state.rangeStart=date; state.rangeEnd=null; state.selDates.clear(); state.selDates.add(date);}
-  else{state.rangeEnd=date; applyDateRange(state.rangeStart,state.rangeEnd);}
-  fitView(); renderAll();
+  state.openDate=true;
+  state.rangeMode='dates';
+  state.allTime=false;
+  state.single=null;
+  state.focus=null;
+  setActiveRecord(null);
+  setDataMode('session',{resetTable:true});
+  if(isDouble){
+    state.rangeStart=date;
+    state.rangeEnd=date;
+    applyDateRange(date,date);
+    fitView();
+    renderAll();
+    return;
+  }
+  if(!state.rangeStart || state.rangeEnd){
+    state.rangeStart=date;
+    state.rangeEnd=null;
+    state.selDates.clear();
+    state.selDates.add(date);
+  }else{
+    state.rangeEnd=date;
+    applyDateRange(state.rangeStart,state.rangeEnd);
+  }
+  fitView();
+  renderAll();
 }
 
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
