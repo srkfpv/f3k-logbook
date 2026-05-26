@@ -1,5 +1,5 @@
 
-const APP_BUILD = '47.0';
+const APP_BUILD = '48.0';
 const LOG_DIR = 'logs/';
 const CACHE_BUST = 'v46-' + Date.now();
 
@@ -58,27 +58,28 @@ function fmtHMS(s){
 }
 function best(a,k){ return a.length ? [...a].sort((x,y)=>(y[k]||0)-(x[k]||0))[0] : null; }
 function top10Flights(){ return [...state.flights].sort((a,b)=>b.duration-a.duration).slice(0,10); }
-function sessionsCount(){ return new Set(state.flights.map(f=>f.date)).size; }
-function flightsShown(){ let a=top10Flights(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a; }
-
-async function loadFlightFile(f){
-  if(!f || f.loaded) return f;
-  try{
-    const csv = await fetch(bustUrl(LOG_DIR + f.file), { cache:'no-store' }).then(r => r.ok ? r.text() : '');
-    const pts = parseCsv(csv);
-    f.pts = pts;
-    f.loaded = pts.length > 0;
-  }catch(e){
-    console.warn('missing log', f && f.file, e);
-  }
-  return f;
+function bestCardFlights(){
+  const keys=['duration','maxAlt','launchAlt','gain'];
+  const out=[];
+  keys.forEach(k=>{
+    const f=best(state.flights,k);
+    if(f && !out.some(x=>x.file===f.file)) out.push(f);
+  });
+  return out;
 }
+function chartFlights(){
+  const out=[...top10Flights()];
+  bestCardFlights().forEach(f=>{ if(!out.some(x=>x.file===f.file)) out.push(f); });
+  return out;
+}
+function sessionsCount(){ return new Set(state.flights.map(f=>f.date)).size; }
+function flightsShown(){let a=chartFlights(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
 async function ensureFlightsLoaded(list){
   const need = [...new Set((list||[]).filter(f=>f && !f.loaded).map(f=>f.file))]
     .map(file => state.flights.find(f=>f.file===file))
     .filter(Boolean);
   for(const f of need) await loadFlightFile(f);
-  setLogStatus(`ver. ${APP_BUILD} • logs: top ${Math.min(10,state.flights.length)}/${state.flights.length}`);
+  setLogStatus(`ver. ${APP_BUILD} • logs: ${chartFlights().filter(f=>f.loaded).length}/${state.flights.length} loaded`);
 }
 
 async function loadRepoLogs(){
@@ -108,7 +109,7 @@ async function loadRepoLogs(){
   }).sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));
 
   state.year = 2026;
-  await ensureFlightsLoaded(top10Flights());
+  await ensureFlightsLoaded(chartFlights());
 }
 
 async function init(){
@@ -190,12 +191,13 @@ async function focusMetric(k){
   setDataMode('flight');
 }
 async function stepFlight(dir){
-  if(!state.flights.length) return;
-  let i = state.flights.findIndex(f => state.single && f.file===state.single.file);
-  if(i<0) i=0;
-  i = (i + dir + state.flights.length) % state.flights.length;
-  state.single = state.flights[i];
-  state.focus = null;
+  const a=chartFlights().filter(f=>f.loaded);
+  if(!a.length)return;
+  let i=a.findIndex(f=>state.single&&f.file===state.single.file);
+  if(i<0)i=0;
+  i=(i+dir+a.length)%a.length;
+  state.single=a[i];
+  state.focus=null;
   setActiveRecord(null);
   await ensureFlightsLoaded([state.single]);
   setDataMode('flight');
@@ -225,8 +227,8 @@ function renderTable(){
   top10Flights().forEach((f,idx)=>{
     const tr=document.createElement('tr');
     tr.className = (state.single && state.single.file===f.file ? 'selectedRow ' : '') + (idx<3 ? `rank rank${idx+1}` : '');
-    const medal = idx<3 ? '●' : '';
-    tr.innerHTML = `<td><span class="rankDot">${medal}</span>${f.date}</td><td>${f.time}</td><td>${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
+    const medal = idx===0?'1':idx===1?'2':idx===2?'3':String(idx+1);
+    tr.innerHTML = `<td><span class="rankBadge">${medal}</span></td><td>${f.date}</td><td>${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick = async () => {
       state.single = f;
       state.focus = null;
@@ -255,7 +257,7 @@ function chartRecordColor(){ return css('--recordChart') || '#db2777'; }
 
 function fitView(redraw=true){
   const a=flightsShown();
-  const base=state.single ? a : top10Flights();
+  const base=state.single ? a : chartFlights();
   const dur=Math.max(60,...base.map(f=>f.duration||0));
   const maxY=Math.max(30,...base.map(f=>f.maxAlt||0))*1.08;
   state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10;
@@ -272,12 +274,13 @@ function updateChartHeader(){
   $('prevFlightBtn').classList.toggle('hidden',!single);
   $('nextFlightBtn').classList.toggle('hidden',!single);
   if(single){
-    const i=state.flights.findIndex(f=>f.file===state.single.file);
+    const list=chartFlights().filter(f=>f.loaded);
+    const i=list.findIndex(f=>f.file===state.single.file);
     $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
-    $('chartSub').textContent=`FLIGHT ${i>=0?i+1:'—'} OF ${state.flights.length}`;
+    $('chartSub').textContent=`FLIGHT TOP ${i>=0?i+1:'—'} OF ${list.length}`;
   }else{
     $('chartLabel').textContent='TOP 10 LONGEST FLIGHTS';
-    $('chartSub').textContent='OVERLAY';
+    $('chartSub').textContent='';
   }
 }
 function drawGrid(w,h){
@@ -415,7 +418,7 @@ function drawChart(){
 
 
 function chartMaxDuration(){
-  const base = state.single ? [state.single] : top10Flights();
+  const base = state.single ? [state.single] : chartFlights();
   return Math.max(60, ...base.map(f=>f.duration||0));
 }
 function clampXRange(){
