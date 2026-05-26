@@ -348,3 +348,26 @@ footer,
     animation:none !important;
   }
 }
+
+/* v34 visible micro animations */
+.panelAnim{
+  animation:f3kPanelAnim .26s ease-out both;
+}
+@keyframes f3kPanelAnim{
+  0%{opacity:.62; transform:translateY(8px) scale(.986);}
+  100%{opacity:1; transform:translateY(0) scale(1);}
+}
+.recordPulse{
+  animation:f3kRecordPulseVisible .58s ease-out both !important;
+}
+@keyframes f3kRecordPulseVisible{
+  0%{transform:scale(.985); box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 34%, transparent);}
+  42%{transform:scale(1.012);}
+  100%{transform:scale(1); box-shadow:0 0 0 11px transparent;}
+}
+@media (prefers-reduced-motion: reduce){
+  .panelAnim,
+  .recordPulse{
+    animation:none !important;
+  }
+}

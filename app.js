@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0, chartAnimUntil:0, chartBubbleAnimUntil:0,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0, chartAnimUntil:0, chartBubbleAnimUntil:0, chartDrawStart:0,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -11,6 +11,15 @@ const M={l:46,r:14,t:18,b:34};
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 init();
 async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
+
+function restartPanelAnimation(){
+  const p=document.querySelector('.detailsPanel,.chartPanel,.tablePanel');
+  if(!p) return;
+  p.classList.remove('panelAnim');
+  void p.offsetWidth;
+  p.classList.add('panelAnim');
+}
+
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
@@ -36,7 +45,7 @@ function bindUI(){
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
-function setDataMode(m,opt={}){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
+function setDataMode(m,opt={}){ restartPanelAnimation(); startChartAnimation();
   if(state.dataMode==='table') state.tableScroll=$('tablePanel').scrollTop||0;
   state.dataMode=m;
   if(m==='session'){
@@ -116,7 +125,7 @@ function sessionDates(desc=true){
   const arr=[...map.values()].sort((a,b)=>desc?b.v-a.v:a.v-b.v);
   return arr;
 }
-function setPeriodMode(mode){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
+function setPeriodMode(mode){ startChartAnimation();
   state.openDate=true;
   state.rangeMode=mode;
   state.allTime=mode==='all';
@@ -211,7 +220,7 @@ function datesBetween(a,b){
   return out;
 }
 function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
-function selectCalendarDate(date,isDouble){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
+function selectCalendarDate(date,isDouble){ startChartAnimation();
   state.openDate=true;
   state.rangeMode='dates';
   state.allTime=false;
@@ -242,7 +251,7 @@ function selectCalendarDate(date,isDouble){ state.chartAnimUntil=performance.now
 
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
-function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setDataMode('flight'); fitView(); renderAll();}
+function focusMetric(k){ document.querySelectorAll('.recordCard').forEach(c=>{c.classList.remove('recordPulse'); if(c.dataset.focus===k){void c.offsetWidth;c.classList.add('recordPulse');}});state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setDataMode('flight'); fitView(); renderAll();}
 function setActiveRecord(k){document.querySelectorAll('.recordCard').forEach(b=>b.classList.toggle('active',b.dataset.focus===k));}
 function valueForSort(f,k){
   if(k==='datetime') return f.year*100000000+dateNum(f.date)*10000+timeNum(f.time);
@@ -289,19 +298,25 @@ function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
 
+
+
+
+function startChartAnimation(){
+  state.chartDrawStart = performance.now();
+  state.chartAnimUntil = state.chartDrawStart + 520;
+  state.chartBubbleAnimUntil = state.chartDrawStart + 760;
+  requestAnimationFrame(drawChart);
+}
 function chartAnimProgress(){
-  if(!state.chartAnimUntil) return 1;
-  const dur=360;
-  const p=1-(state.chartAnimUntil-performance.now())/dur;
+  if(!state.chartDrawStart) return 1;
+  const p=(performance.now()-state.chartDrawStart)/520;
   if(p>=1) return 1;
   if(p<=0) return 0;
-  // smooth ease-out, not spring
   return 1-Math.pow(1-p,3);
 }
 function bubbleAnimProgress(){
-  if(!state.chartBubbleAnimUntil) return 1;
-  const dur=560;
-  const p=1-(state.chartBubbleAnimUntil-performance.now())/dur;
+  if(!state.chartDrawStart) return 1;
+  const p=(performance.now()-state.chartDrawStart-520)/240;
   if(p>=1) return 1;
   if(p<=0) return 0;
   return 1-Math.pow(1-p,3);
@@ -309,6 +324,12 @@ function bubbleAnimProgress(){
 
 function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{updateFitButton(); const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h);
   const __animP=chartAnimProgress(); drawGrid(w,h);
+  /* v34 trace clip */
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(M.l, M.t, (w-M.l-M.r)*__animP, h-M.t-M.b);
+  ctx.clip();
+  let __v34Clipped=true;
   ctx.save();
   ctx.beginPath();
   ctx.rect(M.l, M.t, (w-M.l-M.r)*__animP, h-M.t-M.b);
@@ -360,7 +381,7 @@ function stableMaxPoint(f){
 }
 
 function drawSingleMarkers(f,w,h){
-  if(chartAnimProgress()<0.98){ requestAnimationFrame(drawChart); return; }
+  if(chartAnimProgress()<1){ requestAnimationFrame(drawChart); return; }
   const __bubbleP=bubbleAnimProgress();
   const pts=f.pts||[]; if(!pts.length)return;
 
@@ -420,43 +441,32 @@ function drawBubble(label,px,py,w,h,type,color){
 
   let candidates;
   if(type==='duration'){
-    candidates=[
-      [px-tw-8, py-30],
-      [px-tw-8, py+10],
-      [px+8, py-30],
-      [px+8, py+10]
-    ];
+    candidates=[[px-tw-8,py-30],[px-tw-8,py+10],[px+8,py-30],[px+8,py+10]];
   }else{
-    candidates=[
-      [px+8, py-30],
-      [px+8, py+10],
-      [px-tw-8, py-30],
-      [px-tw-8, py+10]
-    ];
+    candidates=[[px+8,py-30],[px+8,py+10],[px-tw-8,py-30],[px-tw-8,py+10]];
   }
 
   let lx=null, ly=null;
   for(const c of candidates){
     const x=c[0], y=c[1];
-    if(x>=M.l+2 && x+tw<=w-M.r-2 && y>=M.t+2 && y+th<=h-M.b-2){
-      lx=x; ly=y; break;
-    }
+    if(x>=M.l+2 && x+tw<=w-M.r-2 && y>=M.t+2 && y+th<=h-M.b-2){lx=x;ly=y;break;}
   }
   if(lx===null)return;
 
   const bp=bubbleAnimProgress();
-  const scale=.92+.08*bp;
+  if(bp<=0) return;
+  const scale=.82+.18*bp;
   const cx=lx+tw/2, cy=ly+th/2;
+
   ctx.save();
   ctx.globalAlpha=bp;
   ctx.translate(cx,cy);
   ctx.scale(scale,scale);
   ctx.translate(-cx,-cy);
-
   ctx.fillStyle=css('--panel')||'#fff';
   ctx.strokeStyle=color;
   roundRect(ctx,lx,ly,tw,th,6); ctx.fill();
-  ctx.save();ctx.globalAlpha=.55*bp;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha=.7*bp;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
   ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(label,cx,cy);
   ctx.restore();
