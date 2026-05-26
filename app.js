@@ -1,7 +1,7 @@
 
-const APP_BUILD = '56.0';
+const APP_BUILD = '57.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v56-' + Date.now();
+const CACHE_BUST = 'v57-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -225,6 +225,7 @@ function bindUI(){
   frame.addEventListener('pointercancel', pointerUp);
   frame.addEventListener('wheel', wheelZoom, { passive:false });
   new ResizeObserver(()=>drawChart()).observe(frame);
+  bindPressFeedback();
 }
 function loadTheme(){
   const saved=localStorage.getItem('f3kTheme');
@@ -232,11 +233,29 @@ function loadTheme(){
   $('themeBtn').textContent = document.documentElement.classList.contains('light') ? '☾' : '☼';
 }
 
+
+function addPressFeedback(el){
+  if(!el) return;
+  const on=()=>el.classList.add('isPressed');
+  const off=()=>el.classList.remove('isPressed');
+  el.addEventListener('pointerdown',on,{passive:true});
+  el.addEventListener('pointerup',off,{passive:true});
+  el.addEventListener('pointercancel',off,{passive:true});
+  el.addEventListener('pointerleave',off,{passive:true});
+}
+function bindPressFeedback(){
+  document.querySelectorAll('.flightNav').forEach(addPressFeedback);
+}
+
 function setDataMode(m){
   state.dataMode = m;
 
   if(m==='session'){
     state.single = null;
+    state.focus = null;
+    setActiveRecord(null);
+  }
+  if(m==='table'){
     state.focus = null;
     setActiveRecord(null);
   }
@@ -311,7 +330,7 @@ function renderTable(){
   tb.innerHTML='';
   top10Flights().forEach((f,idx)=>{
     const tr=document.createElement('tr');
-    tr.className = (state.single && state.single.file===f.file ? 'selectedRow ' : '') + (idx<3 ? `rank rank${idx+1}` : '');
+    tr.className = (idx<3 ? `rank rank${idx+1}` : '');
     tr.innerHTML = `<td class="rankNum">${idx+1}</td><td>${f.date}</td><td class="timeCell">${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick = async () => {
       state.single = f;
@@ -320,6 +339,7 @@ function renderTable(){
       await ensureFlightsLoaded([f]);
       setDataMode('flight');
     };
+    addPressFeedback(tr);
     tb.appendChild(tr);
   });
 }

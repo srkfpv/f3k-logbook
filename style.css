@@ -743,3 +743,20 @@ footer,
 .chartFrame{
   margin-top:0 !important;
 }
+
+/* v57 pressed states */
+.tablePanel tr.selectedRow{
+  background:transparent !important;
+}
+.tablePanel tbody tr.isPressed{
+  background:color-mix(in srgb, var(--accent) 10%, transparent) !important;
+  transform:scale(.995);
+}
+.flightNav.isPressed{
+  background:color-mix(in srgb, var(--accent) 14%, var(--chip)) !important;
+  transform:scale(.96);
+}
+.flightNav,
+.tablePanel tbody tr{
+  transition:background .12s ease, transform .12s ease, opacity .12s ease;
+}
