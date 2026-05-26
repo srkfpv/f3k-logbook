@@ -1,3 +1,5 @@
+const APP_BUILD='36.0';
+const LOGS_CACHE_BUST='v36-'+Date.now();
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false};
@@ -10,7 +12,7 @@ const M={l:46,r:14,t:18,b:34};
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 init();
-async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
+async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showLoad(false);renderAll(); setLogStatus(`logs: ${state.flights.length} flights`);requestAnimationFrame(drawChart);}
 
 
 
@@ -39,6 +41,15 @@ function bindUI(){
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
+function setLogStatus(text){
+  const el=$('logStatus');
+  if(el) el.textContent=text||'';
+}
+function bustUrl(url){
+  const sep=url.includes('?')?'&':'?';
+  return url+sep+'cb='+encodeURIComponent(LOGS_CACHE_BUST);
+}
+
 function setDataMode(m,opt={}){  
   if(state.dataMode==='table') state.tableScroll=$('tablePanel').scrollTop||0;
   state.dataMode=m;
@@ -79,7 +90,7 @@ const DB_NAME='f3k-logbook-db';
 const DB_STORE='files';
 function openLogDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE,{keyPath:'path'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
 async function getImportedFiles(){try{const db=await openLogDb();return await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readonly');const req=tx.objectStore(DB_STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});}catch(e){return [];}}
-async function loadLogs(){const imported=await getImportedFiles(); const hasIndex=imported.some(f=>/index\.csv$/i.test(f.path||f.name||'')); if(hasIndex){loadImportedLogs(imported);return;} await loadRepoLogs();}
+async function loadLogs(){ setLogStatus('logs: loading…');const imported=await getImportedFiles(); const hasIndex=imported.some(f=>/index\.csv$/i.test(f.path||f.name||'')); if(hasIndex){loadImportedLogs(imported);return;} await loadRepoLogs();}
 function loadImportedLogs(files){
   const map=new Map(files.map(f=>[(f.path||f.name||'').split('/').pop(),f.text||'']));
   const indexTxt=map.get('index.csv')||'';

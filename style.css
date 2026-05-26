@@ -334,3 +334,19 @@ footer,
   margin-bottom:0 !important;
   padding-bottom:0 !important;
 }
+
+/* v36 cache/status */
+.logStatus{
+  text-align:center;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:300;
+  letter-spacing:.04em;
+  color:var(--muted);
+  opacity:.58;
+  margin-top:2px;
+  margin-bottom:0;
+}
+.version + .logStatus{
+  margin-top:1px;
+}
