@@ -54,3 +54,6 @@
 .day.rangeEdge{background:var(--accent)!important;color:#fff!important}
 .day.rangeEdge .cnt{color:#fff!important}
 @media (max-width:380px){.presetToolbar .periodTab{font-size:9px;padding:0 6px}.datePanel .panelHead em{font-size:14px}}
+
+/* v25 chart UX refinements */
+.chartFitBtn{display:none!important}

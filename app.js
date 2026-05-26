@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -24,11 +24,11 @@ function bindUI(){
   $('tableTab').onclick=()=>setDataMode('table');
   $('prevFlightBtn').onclick=()=>stepFlight(-1);
   $('nextFlightBtn').onclick=()=>stepFlight(1);
-  $('chartFitBtn').onclick=(e)=>{e.stopPropagation();fitView();drawChart();};
+  $('chartFitBtn').onclick=(e)=>{e.stopPropagation();};
   document.querySelectorAll('.recordCard').forEach(b=>b.onclick=()=>focusMetric(b.dataset.focus));
   document.querySelectorAll('.sortable').forEach(th=>th.onclick=()=>sortBy(th.dataset.k));
-  frame.addEventListener('dblclick',()=>{fitView();drawChart();});
-  let lastTap=0; frame.addEventListener('touchend',()=>{const now=Date.now(); if(now-lastTap<320){fitView();drawChart();} lastTap=now;},{passive:true});
+  // Fit/reset button and double-tap reset removed: chart interaction stays where the user leaves it.
+
   frame.addEventListener('pointerdown',pointerDown); frame.addEventListener('pointermove',pointerMove); frame.addEventListener('pointerup',pointerUp); frame.addEventListener('pointercancel',pointerUp); frame.addEventListener('wheel',wheelZoom,{passive:false});
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
@@ -191,7 +191,7 @@ function renderTable(){
 function fmtGain(v){v=Math.round(v||0);return v===0?'–':(v>0?'+'+v:String(v));}
 function fmtTime(s){s=Math.round(s||0);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} function fmtHMS(s){s=Math.round(s||0);return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
 function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const dur=Math.max(60,...a.map(f=>f.duration)); const maxY=Math.max(30,...(state.single?a:base).map(f=>f.maxAlt))*1.08; state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10; state.fitX0=state.x0; state.fitX1=state.x1; state.fitY0=state.y0; state.fitY1=state.y1; updateFitButton(); if(redraw)drawChart();}
-function updateFitButton(){const b=$('chartFitBtn'); if(!b)return; const eps=.5; const active=Math.abs(state.x0-state.fitX0)>eps||Math.abs(state.x1-state.fitX1)>eps||Math.abs(state.y0-state.fitY0)>eps||Math.abs(state.y1-state.fitY1)>eps; b.classList.toggle('active',active); b.setAttribute('aria-disabled',active?'false':'true');}
+function updateFitButton(){const b=$('chartFitBtn'); if(!b)return; b.classList.remove('active'); b.setAttribute('aria-disabled','true');}
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
@@ -211,39 +211,41 @@ function updateChartHeader(){
 }
 function drawSingleMarkers(f,w,h){
   const pts=f.pts||[]; if(!pts.length)return;
-  const maxPt=pts.reduce((a,b)=>b.alt>a.alt?b:a,pts[0]);
+  const visiblePts=pts.filter(p=>p.t>=state.x0&&p.t<=state.x1);
+  if(!visiblePts.length)return;
+  const maxPt=visiblePts.reduce((a,b)=>b.alt>a.alt?b:a,visiblePts[0]);
   const endPt=pts[pts.length-1];
   const color=chartRecordColor();
+  const panel=css('--panel')||'#fff';
   ctx.save();
 
-  // max altitude point: pink fill with panel outline so it stays visible on chart line
   const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
   ctx.beginPath();
-  ctx.arc(mx,my,5.2,0,Math.PI*2);
+  ctx.arc(mx,my,5.4,0,Math.PI*2);
   ctx.fillStyle=color;
   ctx.fill();
-  ctx.lineWidth=2.2;
-  ctx.strokeStyle=css('--panel')||'#fff';
+  ctx.lineWidth=2.8;
+  ctx.strokeStyle=panel;
   ctx.stroke();
 
-  // end / duration point
   const ex=sx(endPt.t,w), ey=sy(endPt.alt,h);
-  ctx.beginPath();
-  ctx.arc(ex,ey,4.5,0,Math.PI*2);
-  ctx.fillStyle=color;
-  ctx.fill();
-  ctx.lineWidth=2;
-  ctx.strokeStyle=css('--panel')||'#fff';
-  ctx.stroke();
+  const endVisible=endPt.t>=state.x0&&endPt.t<=state.x1;
+  if(endVisible){
+    ctx.beginPath();
+    ctx.arc(ex,ey,4.8,0,Math.PI*2);
+    ctx.fillStyle=color;
+    ctx.fill();
+    ctx.lineWidth=2.5;
+    ctx.strokeStyle=panel;
+    ctx.stroke();
+  }
 
-  // max altitude bubble
-  const maxLabel=`MAX ${Math.round(f.maxAlt)} m`;
-  ctx.font='800 9px ui-monospace,monospace';
-  drawBubble(maxLabel,mx,my,w,h,'max',color);
-
-  // duration bubble: attached to end point, kept away from the seconds axis label
-  const durLabel=`DUR ${fmtTime(f.duration)}`;
-  drawBubble(durLabel,ex,ey,w,h,'duration',color);
+  const hideBubbles=Date.now()<state.hideBubblesUntil || !!state.drag || !!state.pinch || !!state.momentum;
+  if(!hideBubbles){
+    ctx.font='800 9px ui-monospace,monospace';
+    drawBubble(`MAX ${Math.round(maxPt.alt)} m`,mx,my,w,h,'max',color);
+    if(endVisible) drawBubble(`DUR ${fmtTime(f.duration)}`,ex,ey,w,h,'duration',color);
+  }
   ctx.restore();
 }
 function drawBubble(label,px,py,w,h,type,color){
@@ -251,15 +253,21 @@ function drawBubble(label,px,py,w,h,type,color){
   const tw=ctx.measureText(label).width+12, th=20;
   let lx,ly;
   if(type==='duration'){
-    lx=Math.min(Math.max(px-tw-8,M.l+4),w-M.r-tw-4);
-    ly=Math.min(Math.max(py+10,M.t+4),h-M.b-th-24);
+    lx=px-tw-8;
+    ly=py-30;
   }else{
-    lx=Math.min(Math.max(px+8,M.l+4),w-M.r-tw-4);
-    ly=Math.max(py-28,M.t+4);
+    lx=px+8;
+    ly=py-30;
   }
+  // Bubbles are anchored to their data points. If the anchor leaves the plot area,
+  // the bubble disappears instead of sticking to the chart edge.
+  if(px<M.l||px>w-M.r||py<M.t||py>h-M.b)return;
+  if(lx<M.l+2||lx+tw>w-M.r-2||ly<M.t+2||ly+th>h-M.b-2)return;
   ctx.fillStyle=css('--panel')||'#fff';
-  ctx.strokeStyle=css('--line2')||'#ddd';
-  roundRect(ctx,lx,ly,tw,th,6); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle=color;
+  ctx.globalAlpha=1;
+  roundRect(ctx,lx,ly,tw,th,6); ctx.fill();
+  ctx.save();ctx.globalAlpha=.55;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
   ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(label,lx+tw/2,ly+th/2);
 }
@@ -284,13 +292,16 @@ function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Ma
 function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; }
 function ticks(a,b,n){const span=b-a;if(span<=0)return[a];const raw=span/n, mag=10**Math.floor(Math.log10(raw)), step=(raw/mag>=5?5:raw/mag>=2?2:1)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-6;v+=step)out.push(v);return out;}
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function stopMomentum(){if(state.momentum){cancelAnimationFrame(state.momentum.raf);state.momentum=null;}}
 function pointerDown(e){
+  stopMomentum();
   if(e.pointerType==='mouse'||e.pointerType==='touch'){
     try{frame.setPointerCapture(e.pointerId);}catch{}
   }
-  const p=point(e);
+  const p=point(e), now=performance.now();
   state.pointers.set(e.pointerId,p);
-  if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,mode:null};
+  state.hideBubblesUntil=Date.now()+240;
+  if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,mode:null,lastX:p.x,lastT:now,vx:0};
   if(state.pointers.size===2){
     e.preventDefault();
     const ps=[...state.pointers.values()], dist=Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y), mid=(ps[0].x+ps[1].x)/2;
@@ -300,8 +311,9 @@ function pointerDown(e){
 }
 function pointerMove(e){
   if(!state.pointers.has(e.pointerId))return;
-  const p=point(e), w=frame.getBoundingClientRect().width;
+  const p=point(e), w=frame.getBoundingClientRect().width, now=performance.now();
   state.pointers.set(e.pointerId,p);
+  state.hideBubblesUntil=Date.now()+260;
   if(state.pointers.size===2&&state.pinch){
     e.preventDefault();
     const ps=[...state.pointers.values()], dist=Math.max(24,Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y)), mid=(ps[0].x+ps[1].x)/2;
@@ -309,15 +321,47 @@ function pointerMove(e){
     state.x0=center-newSpan/2; state.x1=center+newSpan/2; clampView(); drawChart(); return;
   }
   if(state.drag&&state.pointers.size===1){
-    const dx=p.x-state.drag.x, adx=Math.abs(dx);
-    if(!state.drag.mode&&adx>5) state.drag.mode='pan';
+    const dx=p.x-state.drag.x, dy=p.y-state.drag.y, adx=Math.abs(dx), ady=Math.abs(dy);
+    if(!state.drag.mode&&adx>5&&adx>ady*.8) state.drag.mode='pan';
     if(state.drag.mode==='pan'){
       e.preventDefault();
+      const dtMs=Math.max(1,now-state.drag.lastT);
+      state.drag.vx=(p.x-state.drag.lastX)/dtMs;
+      state.drag.lastX=p.x; state.drag.lastT=now;
       const span=state.drag.x1-state.drag.x0, dt=-dx/(w-M.l-M.r)*span;
       state.x0=state.drag.x0+dt; state.x1=state.drag.x1+dt; clampView(); drawChart();
     }
   }
 }
-function pointerUp(e){state.pointers.delete(e.pointerId); if(state.pointers.size<2)state.pinch=null; if(state.pointers.size===0)state.drag=null;}
-function wheelZoom(e){e.preventDefault(); const w=frame.getBoundingClientRect().width, p=point(e), cx=invx(p.x,w), z=e.deltaY>0?1.18:.82; state.x0=cx-(cx-state.x0)*z; state.x1=cx+(state.x1-cx)*z; clampView(); drawChart();}
+function pointerUp(e){
+  const drag=state.drag;
+  state.pointers.delete(e.pointerId);
+  if(state.pointers.size<2)state.pinch=null;
+  if(state.pointers.size===0){
+    state.drag=null;
+    if(drag&&drag.mode==='pan'&&Math.abs(drag.vx)>0.22) startMomentum(drag.vx);
+    else {state.hideBubblesUntil=Date.now()+180; setTimeout(drawChart,190);}
+  }
+}
+function startMomentum(vx){
+  const w=frame.getBoundingClientRect().width;
+  const plotW=Math.max(1,w-M.l-M.r);
+  let v=vx, last=performance.now();
+  state.momentum={raf:0};
+  const step=(now)=>{
+    const dt=Math.min(32,now-last); last=now;
+    const span=state.x1-state.x0;
+    const delta=-v*dt/plotW*span;
+    const before0=state.x0, before1=state.x1;
+    state.x0+=delta; state.x1+=delta; clampView();
+    state.hideBubblesUntil=Date.now()+220;
+    drawChart();
+    const hitEdge=Math.abs(state.x0-before0)<1e-4&&Math.abs(state.x1-before1)<1e-4;
+    v*=Math.pow(.94,dt/16);
+    if(Math.abs(v)>0.035&&!hitEdge) state.momentum.raf=requestAnimationFrame(step);
+    else {state.momentum=null; state.hideBubblesUntil=Date.now()+160; setTimeout(drawChart,170);}
+  };
+  state.momentum.raf=requestAnimationFrame(step);
+}
+function wheelZoom(e){e.preventDefault(); stopMomentum(); const w=frame.getBoundingClientRect().width, p=point(e), cx=invx(p.x,w), z=e.deltaY>0?1.18:.82; state.x0=cx-(cx-state.x0)*z; state.x1=cx+(state.x1-cx)*z; clampView(); state.hideBubblesUntil=Date.now()+200; drawChart(); setTimeout(drawChart,220);}
 function clampView(){const a=flightsShown(), maxDur=Math.max(60,...a.map(f=>f.duration)); let span=state.x1-state.x0; const minSpan=Math.min(10,maxDur); span=Math.max(minSpan,Math.min(span,maxDur)); if(state.x0<0){state.x0=0;state.x1=span;} if(state.x1>maxDur){state.x1=maxDur;state.x0=maxDur-span;} if(state.x0<0)state.x0=0; state.x1=state.x0+span;}
