@@ -1,25 +1,6 @@
-const APP_BUILD='42.0';
+const APP_BUILD='44.0';
 const LOGS_CACHE_BUST='f3k-v42-hardfix-'+Date.now();
 const $=id=>document.getElementById(id);
-
-(function(){
-  window.__F3K_BOOT_PCT__ = 0;
-  window.__F3K_BOOT_TIMER__ = setInterval(function(){
-    var wrap=document.getElementById('bootLoader');
-    if(!wrap){ clearInterval(window.__F3K_BOOT_TIMER__); return; }
-    if(wrap.classList.contains('hidden')){ clearInterval(window.__F3K_BOOT_TIMER__); return; }
-    window.__F3K_BOOT_PCT__ = Math.min(92, window.__F3K_BOOT_PCT__ + 2);
-    var pct=window.__F3K_BOOT_PCT__;
-    var pctEl=document.getElementById('bootPct');
-    var bar=document.getElementById('bootBar');
-    var plane=document.getElementById('bootPlane');
-    var label=document.getElementById('bootLabel');
-    if(pctEl) pctEl.textContent=pct+'%';
-    if(bar) bar.style.width=pct+'%';
-    if(plane) plane.style.left=pct+'%';
-    if(label) label.textContent='loading logs';
-  },120);
-})();
 
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false,indexRows:[],loadedFiles:new Set(),loadingFiles:new Set(),loadTotal:0,loadDone:0,bootOverlay:true};
@@ -36,34 +17,34 @@ async function init(){
   bindUI();
   loadTheme();
   showLoad(true);
-  setBootProgress(4,100,'reading index');
+  setBootProgress(0,100,'loading index');
   try{
     await loadLogs();
-    setBootProgress(18,100,'loading last session');
+    setBootProgress(1,4,'index loaded');
     await ensureFlightsForCurrentRange('loading last session');
     renderAll();
     setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
+    setBootProgress(100,100,'ready');
     requestAnimationFrame(drawChart);
+    setTimeout(hideBootLoader,220);
   }catch(e){
     console.error(e);
     setLogStatus(`ver. ${APP_BUILD} • logs: error`);
-    renderAll();
+    const label=document.getElementById('bootLabel');
+    if(label) label.textContent='load error';
   }finally{
     showLoad(false);
-    hideBootLoader();
   }
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 
 
 function setBootProgress(done,total,label='loading logs'){
-  var pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : Math.max(0, Math.min(100, Math.round(done||0)));
-  window.__F3K_BOOT_PCT__ = Math.max(window.__F3K_BOOT_PCT__||0, pct);
-  pct = window.__F3K_BOOT_PCT__;
-  var pctEl=document.getElementById('bootPct');
-  var labelEl=document.getElementById('bootLabel');
-  var bar=document.getElementById('bootBar');
-  var plane=document.getElementById('bootPlane');
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : Math.max(0, Math.min(100, Math.round(done || 0)));
+  const pctEl=document.getElementById('bootPct');
+  const labelEl=document.getElementById('bootLabel');
+  const bar=document.getElementById('bootBar');
+  const plane=document.getElementById('bootPlane');
   if(pctEl)pctEl.textContent=pct+'%';
   if(labelEl)labelEl.textContent=label;
   if(bar)bar.style.width=pct+'%';
@@ -72,7 +53,7 @@ function setBootProgress(done,total,label='loading logs'){
 function hideBootLoader(){
   window.__F3K_BOOT_PCT__ = 100;
   setBootProgress(100,100,'ready');
-  if(window.__F3K_BOOT_TIMER__) clearInterval(window.__F3K_BOOT_TIMER__);
+  
   var wrap=document.getElementById('bootLoader');
   if(wrap){ setTimeout(function(){ wrap.classList.add('hidden'); setTimeout(function(){ if(wrap&&wrap.parentNode) wrap.parentNode.removeChild(wrap); },360); },220); }
 }
@@ -80,8 +61,8 @@ function hideBootLoader(){
 function updateLoadProgress(done,total,label='loading logs'){
   const pct = total > 0 ? Math.max(0,Math.min(100,Math.round((done/total)*100))) : 0;
   const el=document.getElementById('logStatus');
-  if(el) el.textContent=`ver. ${APP_BUILD} • loading ${pct}%`;
-  setBootProgress(pct,100,label);
+  if(el) el.textContent=`ver. ${APP_BUILD} • ${label} ${pct}%`;
+  setBootProgress(done,total,label);
 }
 
 
@@ -144,7 +125,9 @@ function loadImportedLogs(files){
 
 async function loadRepoLogs(){
   try{
+    setBootProgress(0,100,'loading index');
     const txt=await fetch(bustUrl(LOG_DIR+'index.csv'),{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('index');return r.text();});
+    setBootProgress(1,4,'index loaded');
     const rows=txt.trim().split(/\r?\n/).filter(Boolean).map(l=>l.split(',').map(x=>x.trim())).filter(r=>r.length>=6);
     const out=[];
     for(const r of rows){
@@ -161,6 +144,7 @@ async function loadRepoLogs(){
   }catch(e){
     console.warn(e);
     state.flights=[];
+    throw e;
   }
 }
 
@@ -176,15 +160,18 @@ function setPeriodModeSilent(mode){
 async function loadFlightFile(f){
   if(!f || f.loaded || state.loadingFiles.has(f.file)) return f;
   state.loadingFiles.add(f.file);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
   try{
-    const csv=await fetch(bustUrl(LOG_DIR+f.file),{cache:'no-store'}).then(x=>x.ok?x.text():'');
+    const csv=await fetch(bustUrl(LOG_DIR+f.file),{cache:'no-store',signal:controller.signal}).then(x=>x.ok?x.text():'');
     const pts=parseCsv(csv);
     f.pts=pts;
     f.loaded=pts.length>0;
     state.loadedFiles.add(f.file);
   }catch(e){
-    console.warn('missing log',f.file,e);
+    console.warn('missing/timeout log',f.file,e);
   }finally{
+    clearTimeout(timer);
     state.loadingFiles.delete(f.file);
   }
   return f;
@@ -194,20 +181,22 @@ async function ensureFlightsLoaded(list,label='loading logs'){
     .map(file=>state.flights.find(f=>f.file===file))
     .filter(Boolean);
   const total=need.length;
-  if(!total){ updateLoadProgress(1,1,'ready'); return; }
+  if(!total){
+    updateLoadProgress(1,1,'ready');
+    return;
+  }
   state.loading=true;
   state.loadTotal=total;
   state.loadDone=0;
-  setBootProgress(10,100,label);
   updateLoadProgress(0,total,label);
   const batch=4;
   for(let i=0;i<need.length;i+=batch){
     await Promise.all(need.slice(i,i+batch).map(async f=>{
       await loadFlightFile(f);
       state.loadDone++;
-      setBootProgress(10 + Math.round((state.loadDone/Math.max(1,total))*88),100,label);
       updateLoadProgress(state.loadDone,total,label);
     }));
+    drawChart();
   }
   state.loading=false;
   setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
