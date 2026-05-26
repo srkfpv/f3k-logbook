@@ -14,9 +14,10 @@ async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showL
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
-  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
-  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
-  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
+  $('lastBtn').onclick=()=>{setPeriodMode('last');};
+  $('last10Btn').onclick=()=>{setPeriodMode('last10');};
+  $('allTimeBtn').onclick=()=>{setPeriodMode('all');};
+  $('byDateBtn').onclick=()=>{state.rangeMode='dates';state.allTime=false;state.single=null;state.focus=null;setActiveRecord(null);setDataMode('session',{resetTable:true});fitView();renderAll();};
   $('prevMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(-1);};
   $('nextMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(1);};
   $('sessionTab').onclick=()=>setDataMode('session',{resetTable:true});
@@ -97,7 +98,57 @@ function initCalendarMonth(){const now=new Date(); state.year=2026; state.openMo
 function shiftMonth(delta){state.openMonth+=delta; if(state.openMonth<1){state.openMonth=12;state.year--;} if(state.openMonth>12){state.openMonth=1;state.year++;} renderDate();}
 function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} function timeNum(t){return Number(String(t).replace(/\D/g,''))||0;}
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
-function flightsBase(){let a=state.flights; if(state.rangeMode==='last'){const last=[...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time)))[0]; return last?state.flights.filter(f=>f.date===last.date):[];} if(state.rangeMode==='last10'){return [...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time))).slice(0,10).sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));} if(state.rangeMode==='dates'&&state.selDates.size) return a.filter(f=>state.selDates.has(f.date)); return a;}
+
+function sessionDates(desc=true){
+  const map=new Map();
+  state.flights.forEach(f=>{
+    if(!map.has(f.date)) map.set(f.date,{date:f.date, year:f.year||state.year, n:dateNum(f.date)});
+  });
+  const arr=[...map.values()].sort((a,b)=>(b.year*10000+b.n)-(a.year*10000+a.n));
+  return desc?arr:arr.reverse();
+}
+function setPeriodMode(mode){
+  state.rangeMode=mode;
+  state.allTime=mode==='all';
+  state.selDates.clear();
+  state.rangeStart=null;
+  state.rangeEnd=null;
+  state.single=null;
+  state.focus=null;
+  setActiveRecord(null);
+  const dates=selectedSessionDates();
+  if(dates.length){
+    const latest=dates[dates.length-1];
+    const m=parseInt(String(latest).split('/')[1],10);
+    if(Number.isFinite(m)) state.openMonth=m;
+  }
+  setDataMode('session',{resetTable:true});
+  fitView();
+  renderAll();
+}
+function selectedSessionDates(){
+  const sessions=sessionDates(true).map(x=>x.date);
+  if(state.rangeMode==='last') return sessions.slice(0,1).reverse();
+  if(state.rangeMode==='last10') return sessions.slice(0,10).reverse();
+  if(state.rangeMode==='all') return sessions.reverse();
+  if(state.rangeMode==='dates') return [...state.selDates].sort((a,b)=>dateNum(a)-dateNum(b));
+  return [];
+}
+
+function flightsBase(){
+  const a=state.flights;
+  if(state.rangeMode==='last'){
+    const ds=selectedSessionDates();
+    return ds.length?a.filter(f=>f.date===ds[0]):[];
+  }
+  if(state.rangeMode==='last10'){
+    const ds=new Set(selectedSessionDates());
+    return a.filter(f=>ds.has(f.date)).sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
+  }
+  if(state.rangeMode==='all') return a;
+  if(state.rangeMode==='dates'&&state.selDates.size) return a.filter(f=>state.selDates.has(f.date));
+  return a;
+}
 function flightsShown(){let a=flightsBase(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
 function renderAll(){renderDate();renderSummary();renderTable();renderTableHeader();fitView(false);drawChart();}
 function formatFullDate(d){const [dd,mm]=String(d).split('/');return `${dd}/${mm}/${state.year}`;}
@@ -108,7 +159,7 @@ function dateLabelText(){
   const a=flightsBase();
   if(!a.length && state.rangeStart && !state.rangeEnd) return formatFullDate(state.rangeStart);
   if(!a.length && state.rangeStart && state.rangeEnd) return `${formatFullDate(state.rangeStart)} – ${formatFullDate(state.rangeEnd)}`;
-  if(!a.length) return 'NO LOGS';
+  if(!a.length) return 'BY DATE';
   const ordered=[...a].sort((x,y)=>(x.year*10000+dateNum(x.date)+timeNum(x.time))-(y.year*10000+dateNum(y.date)+timeNum(y.time)));
   const first=ordered[0].date, last=ordered[ordered.length-1].date;
   return first===last?formatFullDate(first):`${formatFullDate(first)} – ${formatFullDate(last)}`;
@@ -119,18 +170,21 @@ function renderDate(){
   $('lastBtn').classList.toggle('active',state.rangeMode==='last');
   $('last10Btn').classList.toggle('active',state.rangeMode==='last10');
   $('allTimeBtn').classList.toggle('active',state.rangeMode==='all');
+  $('byDateBtn').classList.toggle('active',state.rangeMode==='dates');
+  $('calendarWrap').classList.toggle('hidden',state.rangeMode!=='dates');
   renderCalendar();
 }
 function renderCalendar(){
   $('monthLabel').textContent=`${MONTHS[state.openMonth-1]} ${state.year}`;
   const byDate={}; state.flights.forEach(f=>{byDate[f.date]=(byDate[f.date]||0)+1;});
+  const selected=new Set(selectedSessionDates());
   const cal=$('calendar'); cal.innerHTML='';
   const today=new Date(); const todayDate=String(today.getDate()).padStart(2,'0')+'/'+String(today.getMonth()+1).padStart(2,'0'); const isThisMonth=today.getFullYear()===state.year && today.getMonth()+1===state.openMonth;
   let firstDow=new Date(state.year,state.openMonth-1,1).getDay(); firstDow=(firstDow+6)%7; const days=new Date(state.year,state.openMonth,0).getDate();
   for(let i=0;i<firstDow;i++){const d=document.createElement('div');d.className='day spacer';cal.appendChild(d);}
   for(let day=1;day<=days;day++){
     const date=String(day).padStart(2,'0')+'/'+String(state.openMonth).padStart(2,'0'); const cnt=byDate[date]||0;
-    const isSel=state.rangeMode==='dates'&&state.selDates.has(date); const isEdge=isSel&&(date===state.rangeStart||date===state.rangeEnd); const b=document.createElement('button'); b.className='day '+(cnt?'has':'')+(isSel?' sel inRange':'')+(isEdge?' rangeEdge':'')+(isThisMonth&&date===todayDate?' today':'');
+    const isSel=selected.has(date); const isEdge=state.rangeMode==='dates'&&isSel&&(date===state.rangeStart||date===state.rangeEnd); const b=document.createElement('button'); b.className='day '+(cnt?'has':'')+(isSel?' sel inRange':'')+(isEdge?' rangeEdge':'')+(isThisMonth&&date===todayDate?' today':'');
     b.innerHTML=cnt?`${day}<span class="cnt">${cnt}</span>`:`${day}`;
     b.onclick=(e)=>selectCalendarDate(date,e.detail>=2);
     cal.appendChild(b);

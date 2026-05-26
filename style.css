@@ -225,3 +225,14 @@ button[data-mode="flight"]{
 .durationBubble{
   border-width:1px !important;
 }
+
+/* v30 select/session picker */
+.presetToolbar{
+  grid-template-columns:repeat(4,1fr);
+}
+#calendarWrap.hidden{
+  display:none !important;
+}
+.summaryPanel .infoLine span{
+  letter-spacing:.08em;
+}
