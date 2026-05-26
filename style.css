@@ -671,3 +671,42 @@ footer,
 .tablePanel thead th{
   overflow:hidden;
 }
+
+/* v55 compact top 10 details vertical rhythm */
+.detailsPanel{
+  padding-top:22px !important;
+}
+.detailsHead{
+  margin-bottom:10px !important;
+}
+.detailsHead .sectionKicker{
+  margin-bottom:8px !important;
+}
+.dataTabs{
+  margin-top:0 !important;
+  margin-bottom:8px !important;
+}
+.chartPanel{
+  padding-top:0 !important;
+  margin-top:0 !important;
+}
+.chartTop{
+  padding-top:4px !important;
+  padding-bottom:8px !important;
+  margin-top:0 !important;
+  margin-bottom:8px !important;
+}
+.chartTop.overlayHidden{
+  margin:0 !important;
+  padding:0 !important;
+}
+.chartFrame{
+  margin-top:0 !important;
+}
+.tablePanel{
+  padding-top:0 !important;
+  margin-top:0 !important;
+}
+.tablePanel table{
+  margin-top:0 !important;
+}
