@@ -760,3 +760,17 @@ footer,
 .tablePanel tbody tr{
   transition:background .12s ease, transform .12s ease, opacity .12s ease;
 }
+
+/* v58 arrow pressed pink */
+.flightNav.isPressed{
+  background:color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  color:var(--accent) !important;
+  border-color:color-mix(in srgb, var(--accent) 35%, transparent) !important;
+  transform:scale(.96);
+}
+.flightNav.isPressed svg,
+.flightNav.isPressed path{
+  color:var(--accent) !important;
+  stroke:var(--accent) !important;
+  fill:var(--accent) !important;
+}
