@@ -1,7 +1,7 @@
 
-const APP_BUILD = '55.0';
+const APP_BUILD = '56.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v55-' + Date.now();
+const CACHE_BUST = 'v56-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');

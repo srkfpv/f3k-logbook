@@ -710,3 +710,36 @@ footer,
 .tablePanel table{
   margin-top:0 !important;
 }
+
+/* v56 match summary spacing */
+.detailsPanel{
+  padding-top:18px !important;
+}
+.detailsHead{
+  margin-bottom:6px !important;
+}
+.detailsHead .sectionKicker{
+  margin-bottom:6px !important;
+}
+.dataTabs{
+  margin-top:0 !important;
+  margin-bottom:6px !important;
+}
+.chartPanel,
+.tablePanel{
+  margin-top:0 !important;
+  padding-top:0 !important;
+}
+.chartTop{
+  padding-top:2px !important;
+  padding-bottom:6px !important;
+  margin-top:0 !important;
+  margin-bottom:6px !important;
+}
+.chartTop.overlayHidden{
+  margin:0 !important;
+  padding:0 !important;
+}
+.chartFrame{
+  margin-top:0 !important;
+}
