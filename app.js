@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0, chartAnimUntil:0, chartBubbleAnimUntil:0,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -36,7 +36,7 @@ function bindUI(){
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
-function setDataMode(m,opt={}){
+function setDataMode(m,opt={}){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
   if(state.dataMode==='table') state.tableScroll=$('tablePanel').scrollTop||0;
   state.dataMode=m;
   if(m==='session'){
@@ -116,7 +116,7 @@ function sessionDates(desc=true){
   const arr=[...map.values()].sort((a,b)=>desc?b.v-a.v:a.v-b.v);
   return arr;
 }
-function setPeriodMode(mode){
+function setPeriodMode(mode){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
   state.openDate=true;
   state.rangeMode=mode;
   state.allTime=mode==='all';
@@ -211,7 +211,7 @@ function datesBetween(a,b){
   return out;
 }
 function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
-function selectCalendarDate(date,isDouble){
+function selectCalendarDate(date,isDouble){ state.chartAnimUntil=performance.now()+360; state.chartBubbleAnimUntil=performance.now()+560;
   state.openDate=true;
   state.rangeMode='dates';
   state.allTime=false;
@@ -288,7 +288,32 @@ function updateFitButton(){const b=$('chartFitBtn'); if(!b)return; b.classList.r
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
-function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{updateFitButton(); const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); updateChartHeader(); if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); if(state.single) drawSingleMarkers(state.single,w,h); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+
+function chartAnimProgress(){
+  if(!state.chartAnimUntil) return 1;
+  const dur=360;
+  const p=1-(state.chartAnimUntil-performance.now())/dur;
+  if(p>=1) return 1;
+  if(p<=0) return 0;
+  // smooth ease-out, not spring
+  return 1-Math.pow(1-p,3);
+}
+function bubbleAnimProgress(){
+  if(!state.chartBubbleAnimUntil) return 1;
+  const dur=560;
+  const p=1-(state.chartBubbleAnimUntil-performance.now())/dur;
+  if(p>=1) return 1;
+  if(p<=0) return 0;
+  return 1-Math.pow(1-p,3);
+}
+
+function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{updateFitButton(); const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h);
+  const __animP=chartAnimProgress(); drawGrid(w,h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(M.l, M.t, (w-M.l-M.r)*__animP, h-M.t-M.b);
+  ctx.clip();
+  var __animClipApplied=true; const a=flightsShown(); updateChartHeader(); if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); if(state.single) drawSingleMarkers(state.single,w,h); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
 function updateChartHeader(){
   const single=!!state.single;
   $('prevFlightBtn').classList.toggle('hidden',!single);
@@ -335,6 +360,8 @@ function stableMaxPoint(f){
 }
 
 function drawSingleMarkers(f,w,h){
+  if(chartAnimProgress()<0.98){ requestAnimationFrame(drawChart); return; }
+  const __bubbleP=bubbleAnimProgress();
   const pts=f.pts||[]; if(!pts.length)return;
 
   // Stable absolute markers:
@@ -383,6 +410,7 @@ function drawSingleMarkers(f,w,h){
     }
   }
 
+  if(__animClipApplied){ctx.restore(); __animClipApplied=false;}
   ctx.restore();
 }
 function drawBubble(label,px,py,w,h,type,color){
@@ -416,13 +444,22 @@ function drawBubble(label,px,py,w,h,type,color){
   }
   if(lx===null)return;
 
+  const bp=bubbleAnimProgress();
+  const scale=.92+.08*bp;
+  const cx=lx+tw/2, cy=ly+th/2;
+  ctx.save();
+  ctx.globalAlpha=bp;
+  ctx.translate(cx,cy);
+  ctx.scale(scale,scale);
+  ctx.translate(-cx,-cy);
+
   ctx.fillStyle=css('--panel')||'#fff';
   ctx.strokeStyle=color;
-  ctx.globalAlpha=1;
   roundRect(ctx,lx,ly,tw,th,6); ctx.fill();
-  ctx.save();ctx.globalAlpha=.55;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha=.55*bp;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
   ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(label,lx+tw/2,ly+th/2);
+  ctx.fillText(label,cx,cy);
+  ctx.restore();
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 

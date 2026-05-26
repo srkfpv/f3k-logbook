@@ -314,3 +314,37 @@ footer,
   margin-bottom:0 !important;
   padding-bottom:0 !important;
 }
+
+/* v33 micro animations: 1) chart trace, 2) marker bubble morph, 3) soft active record pulse */
+
+/* Smooth content appearance on Flights Details panels */
+.chartPanel,
+.tablePanel{
+  animation:f3kPanelIn .18s ease-out both;
+}
+@keyframes f3kPanelIn{
+  from{opacity:.72; transform:translateY(3px) scale(.995);}
+  to{opacity:1; transform:translateY(0) scale(1);}
+}
+
+/* Soft one-shot pulse/highlight on active metric cards */
+.recordCard.active,
+.recordCard.isActive,
+.recordCard[aria-pressed="true"]{
+  animation:f3kRecordPulse .46s ease-out both;
+}
+@keyframes f3kRecordPulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 28%, transparent);}
+  100%{box-shadow:0 0 0 10px transparent;}
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .chartPanel,
+  .tablePanel,
+  .recordCard.active,
+  .recordCard.isActive,
+  .recordCard[aria-pressed="true"]{
+    animation:none !important;
+  }
+}
