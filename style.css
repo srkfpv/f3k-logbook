@@ -456,3 +456,46 @@ footer,
   color:var(--muted);
   opacity:.62;
 }
+
+/* v50 parser + table UX */
+.rankBadge,
+.rankDot{
+  display:none !important;
+}
+.tablePanel th.durationCol,
+.tablePanel td.durationCell{
+  color:var(--accent);
+  font-weight:850;
+  background:color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.rankNum{
+  font-weight:850;
+  color:var(--muted);
+}
+.rank1{
+  background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent) 5%, transparent) 70%, transparent) !important;
+}
+.rank2{
+  background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--accent) 4%, transparent) 70%, transparent) !important;
+}
+.rank3{
+  background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent) 3%, transparent) 70%, transparent) !important;
+}
+.rank1 .rankNum{
+  color:var(--accent);
+}
+.rank2 .rankNum,
+.rank3 .rankNum{
+  color:color-mix(in srgb, var(--accent) 72%, var(--text));
+}
+.tableTitle{
+  text-align:center;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.09em;
+  color:var(--text);
+  margin:2px 0 10px;
+}
+.chartTitle small:empty{
+  display:none;
+}

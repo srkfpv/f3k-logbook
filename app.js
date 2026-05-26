@@ -1,7 +1,7 @@
 
-const APP_BUILD = '49.0';
+const APP_BUILD = '50.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v46-' + Date.now();
+const CACHE_BUST = 'v50-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -121,28 +121,38 @@ async function ensureFlightsLoaded(list){
 async function loadRepoLogs(){
   setLogStatus(`ver. ${APP_BUILD} • logs: loading index`);
   const txt = await fetchTextAny([LOG_DIR + 'index.csv', 'index.csv']);
-
   const rows = parseIndexRows(txt);
-  const out=[];
+  const out = [];
+
   for(const r of rows){
-    // expected: date,time,launch,maxAlt,duration,file
-    // tolerate file column elsewhere by finding .csv cell
     const fileIdx = r.findIndex(x=>/\.csv$/i.test(x));
     const file = fileIdx >= 0 ? r[fileIdx] : r[5];
     const vals = r.filter((_,i)=>i!==fileIdx);
-    const date=vals[0], time=vals[1], lnh=vals[2], maxAlt=vals[3], duration=vals[4];
-    const rawLnh=Number(lnh), rawMax=Number(maxAlt), rawDur=Number(duration);
-    if(!date || !time || !file || !Number.isFinite(rawDur)) continue;
-    const fixedLaunch = Number.isFinite(rawLnh)&&Number.isFinite(rawMax) ? (rawLnh > rawMax ? rawMax : rawLnh) : (Number.isFinite(rawLnh)?rawLnh:0);
-    const fixedMax = Number.isFinite(rawLnh)&&Number.isFinite(rawMax) ? (rawLnh > rawMax ? rawLnh : rawMax) : (Number.isFinite(rawMax)?rawMax:0);
+
+    // Exact index.csv format:
+    // date, time, launch/LNH, max altitude, duration seconds, file
+    const date = vals[0];
+    const time = vals[1];
+    const launch = Number(vals[2]);
+    const maxAlt = Number(vals[3]);
+    const duration = Number(vals[4]);
+
+    if(!date || !time || !file || !Number.isFinite(duration)) continue;
+
+    const lnh = Number.isFinite(launch) ? launch : 0;
+    const alt = Number.isFinite(maxAlt) ? maxAlt : lnh;
+
     out.push({
-      date,time,year:yearFromFile(file),file:normalizeFlightPath(file),
-      launchAlt:fixedLaunch,
-      maxAlt:fixedMax,
-      duration:rawDur,
-      gain:fixedMax-fixedLaunch,
-      pts:[],
-      loaded:false
+      date,
+      time,
+      year: yearFromFile(file),
+      file: normalizeFlightPath(file),
+      launchAlt: lnh,
+      maxAlt: alt,
+      duration,
+      gain: alt - lnh,
+      pts: [],
+      loaded: false
     });
   }
 
@@ -233,10 +243,10 @@ async function focusMetric(k){
   setDataMode('flight');
 }
 async function stepFlight(dir){
-  const a=chartFlights().filter(f=>f.loaded);
-  if(!a.length)return;
+  const a=top10Flights();
+  if(!a.length) return;
   let i=a.findIndex(f=>state.single&&f.file===state.single.file);
-  if(i<0)i=0;
+  if(i<0) i=0;
   i=(i+dir+a.length)%a.length;
   state.single=a[i];
   state.focus=null;
@@ -269,8 +279,7 @@ function renderTable(){
   top10Flights().forEach((f,idx)=>{
     const tr=document.createElement('tr');
     tr.className = (state.single && state.single.file===f.file ? 'selectedRow ' : '') + (idx<3 ? `rank rank${idx+1}` : '');
-    const medal = idx===0?'1':idx===1?'2':idx===2?'3':String(idx+1);
-    tr.innerHTML = `<td><span class="rankBadge">${medal}</span></td><td>${f.date}</td><td>${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
+    tr.innerHTML = `<td class="rankNum">${idx+1}</td><td>${f.date}</td><td>${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick = async () => {
       state.single = f;
       state.focus = null;
@@ -316,10 +325,10 @@ function updateChartHeader(){
   $('prevFlightBtn').classList.toggle('hidden',!single);
   $('nextFlightBtn').classList.toggle('hidden',!single);
   if(single){
-    const list=chartFlights().filter(f=>f.loaded);
+    const list=top10Flights();
     const i=list.findIndex(f=>f.file===state.single.file);
     $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
-    $('chartSub').textContent=`FLIGHT TOP ${i>=0?i+1:'—'} OF ${list.length}`;
+    $('chartSub').textContent=`FLIGHT TOP ${i>=0?i+1:'—'} OF ${Math.min(10,state.flights.length)}`;
   }else{
     $('chartLabel').textContent='TOP 10 LONGEST FLIGHTS';
     $('chartSub').textContent='';
