@@ -1,7 +1,7 @@
 
-const APP_BUILD = '52.0';
+const APP_BUILD = '53.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v52-' + Date.now();
+const CACHE_BUST = 'v53-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -304,8 +304,7 @@ function renderTable(){
   top10Flights().forEach((f,idx)=>{
     const tr=document.createElement('tr');
     tr.className = (state.single && state.single.file===f.file ? 'selectedRow ' : '') + (idx<3 ? `rank rank${idx+1}` : '');
-    const star = idx===0?'★':idx===1?'★':idx===2?'★':'';
-    tr.innerHTML = `<td class="rankNum">${idx+1}</td><td class="rankStar">${star}</td><td>${f.date}</td><td class="timeCell">${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
+    tr.innerHTML = `<td class="rankNum">${idx+1}</td><td>${f.date}</td><td class="timeCell">${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick = async () => {
       state.single = f;
       state.focus = null;

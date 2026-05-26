@@ -551,3 +551,93 @@ footer,
 .rankDot{
   display:none !important;
 }
+
+/* v53 table/chart spacing refinements */
+.detailsHead{
+  margin-bottom:14px !important;
+}
+.detailsHead .sectionKicker{
+  margin-bottom:12px !important;
+}
+.dataTabs{
+  margin-top:0 !important;
+  margin-bottom:14px !important;
+}
+.chartPanel{
+  padding-top:0 !important;
+}
+.chartTop{
+  padding-top:10px !important;
+  padding-bottom:10px !important;
+  margin-bottom:14px !important;
+}
+.chartTitle span:empty,
+.chartTitle small:empty{
+  display:none !important;
+}
+.chartTitle:has(span:empty):has(small:empty){
+  display:none !important;
+}
+.chartTop:has(.chartTitle span:empty):has(.chartTitle small:empty){
+  min-height:0 !important;
+  height:0 !important;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  margin-bottom:14px !important;
+}
+.chartFrame{
+  border-radius:28px !important;
+  overflow:hidden !important;
+  min-height:360px;
+}
+#chartCanvas{
+  border-radius:28px !important;
+  display:block;
+}
+.tablePanel{
+  padding-top:0 !important;
+}
+.tablePanel table{
+  width:100% !important;
+  table-layout:fixed !important;
+  border-collapse:separate !important;
+  border-spacing:0 !important;
+}
+.tablePanel th,
+.tablePanel td{
+  text-align:center !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+}
+.tablePanel th:nth-child(1),
+.tablePanel td:nth-child(1){width:10%;}
+.tablePanel th:nth-child(2),
+.tablePanel td:nth-child(2){width:16%;}
+.tablePanel th:nth-child(3),
+.tablePanel td:nth-child(3){width:16%;}
+.tablePanel th:nth-child(4),
+.tablePanel td:nth-child(4){width:18%;}
+.tablePanel th:nth-child(5),
+.tablePanel td:nth-child(5){width:13%;}
+.tablePanel th:nth-child(6),
+.tablePanel td:nth-child(6){width:13%;}
+.tablePanel th:nth-child(7),
+.tablePanel td:nth-child(7){width:14%;}
+.tablePanel tbody tr:last-child td{
+  border-bottom:none !important;
+}
+.rankStar{
+  display:none !important;
+}
+.rankNum{
+  font-weight:700 !important;
+  color:var(--text) !important;
+}
+.rank1,
+.rank2,
+.rank3{
+  background:transparent !important;
+}
+.timeCell{
+  color:var(--muted) !important;
+}
