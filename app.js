@@ -222,26 +222,40 @@ function updateChartHeader(){
 }
 function drawSingleMarkers(f,w,h){
   const pts=f.pts||[]; if(!pts.length)return;
-  const visiblePts=pts.filter(p=>p.t>=state.x0&&p.t<=state.x1);
-  if(!visiblePts.length)return;
-  const maxPt=visiblePts.reduce((a,b)=>b.alt>a.alt?b:a,visiblePts[0]);
+
+  // IMPORTANT:
+  // The max-alt marker must be calculated from the complete flight, not from
+  // the currently visible/zoomed chart window. Otherwise, during horizontal pan
+  // it "walks" along the line and changes value. The marker below is absolute:
+  // same data point, same value, hidden only when that data point is outside
+  // the visible viewport.
+  const maxPt=pts.reduce((a,b)=>b.alt>a.alt?b:a,pts[0]);
   const endPt=pts[pts.length-1];
   const color=chartRecordColor();
   const panel=css('--panel')||'#fff';
+  const hideBubbles=Date.now()<state.hideBubblesUntil || !!state.drag || !!state.pinch || !!state.momentum;
+
   ctx.save();
 
-  const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
-  ctx.beginPath();
-  ctx.arc(mx,my,5.4,0,Math.PI*2);
-  ctx.fillStyle=color;
-  ctx.fill();
-  ctx.lineWidth=2.8;
-  ctx.strokeStyle=panel;
-  ctx.stroke();
+  const maxVisible=maxPt.t>=state.x0&&maxPt.t<=state.x1&&maxPt.alt>=state.y0&&maxPt.alt<=state.y1;
+  if(maxVisible){
+    const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
+    ctx.beginPath();
+    ctx.arc(mx,my,5.4,0,Math.PI*2);
+    ctx.fillStyle=color;
+    ctx.fill();
+    ctx.lineWidth=2.8;
+    ctx.strokeStyle=panel;
+    ctx.stroke();
+    if(!hideBubbles){
+      ctx.font='800 9px ui-monospace,monospace';
+      drawBubble(`MAX ${Math.round(maxPt.alt)} m`,mx,my,w,h,'max',color);
+    }
+  }
 
-  const ex=sx(endPt.t,w), ey=sy(endPt.alt,h);
-  const endVisible=endPt.t>=state.x0&&endPt.t<=state.x1;
+  const endVisible=endPt.t>=state.x0&&endPt.t<=state.x1&&endPt.alt>=state.y0&&endPt.alt<=state.y1;
   if(endVisible){
+    const ex=sx(endPt.t,w), ey=sy(endPt.alt,h);
     ctx.beginPath();
     ctx.arc(ex,ey,4.8,0,Math.PI*2);
     ctx.fillStyle=color;
@@ -249,14 +263,12 @@ function drawSingleMarkers(f,w,h){
     ctx.lineWidth=2.5;
     ctx.strokeStyle=panel;
     ctx.stroke();
+    if(!hideBubbles){
+      ctx.font='800 9px ui-monospace,monospace';
+      drawBubble(`DUR ${fmtTime(f.duration)}`,ex,ey,w,h,'duration',color);
+    }
   }
 
-  const hideBubbles=Date.now()<state.hideBubblesUntil || !!state.drag || !!state.pinch || !!state.momentum;
-  if(!hideBubbles){
-    ctx.font='800 9px ui-monospace,monospace';
-    drawBubble(`MAX ${Math.round(maxPt.alt)} m`,mx,my,w,h,'max',color);
-    if(endVisible) drawBubble(`DUR ${fmtTime(f.duration)}`,ex,ey,w,h,'duration',color);
-  }
   ctx.restore();
 }
 function drawBubble(label,px,py,w,h,type,color){
@@ -378,28 +390,4 @@ function wheelZoom(e){e.preventDefault(); stopMomentum(); const w=frame.getBound
 function clampView(){const a=flightsShown(), maxDur=Math.max(60,...a.map(f=>f.duration)); let span=state.x1-state.x0; const minSpan=Math.min(10,maxDur); span=Math.max(minSpan,Math.min(span,maxDur)); if(state.x0<0){state.x0=0;state.x1=span;} if(state.x1>maxDur){state.x1=maxDur;state.x0=maxDur-span;} if(state.x0<0)state.x0=0; state.x1=state.x0+span;}
 
 
-/* v27 fixes: stable single-flight markers, labels, table height */
-(function(){
-  window.__F3K_V27__ = true;
 
-  function stableMarkerPatch(){
-    const root = document.querySelector('#chartCanvas, canvas, svg');
-    if(!root) return;
-  }
-
-  // Make existing SVG/HTML marker labels ignore pointer events and hide only while actively panning.
-  let panTimer = null;
-  function setPanning(on){
-    document.documentElement.classList.toggle('chart-panning', !!on);
-    if(on){
-      clearTimeout(panTimer);
-      panTimer = setTimeout(()=>setPanning(false), 180);
-    }
-  }
-  document.addEventListener('touchmove', (e)=>{
-    if(e.target.closest('.chartWrap,.chartBox,.chartPanel,canvas,svg')) setPanning(true);
-  }, {passive:true});
-  document.addEventListener('pointermove', (e)=>{
-    if(e.target.closest('.chartWrap,.chartBox,.chartPanel,canvas,svg')) setPanning(true);
-  }, {passive:true});
-})();

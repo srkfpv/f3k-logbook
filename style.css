@@ -205,3 +205,13 @@ button[data-mode="flight"]{
 .version{
   font-weight:300 !important;
 }
+
+/* v28 max marker fixed */
+.chartBubble,
+.chart-bubble,
+.markerBubble,
+.marker-bubble,
+.maxAltBubble,
+.durationBubble{
+  border-width:1px !important;
+}
