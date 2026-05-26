@@ -385,5 +385,16 @@ footer,
 .rank3 .rankDot{background:#B07A3A;}
 .rank1 td:first-child{font-weight:760;}
 .rank2 td:first-child,.rank3 td:first-child{font-weight:700;}
-#flightTab{display:none!important;}
-.dataTabs{grid-template-columns:repeat(2,1fr) !important;}
+
+.dataTabs{grid-template-columns:repeat(3,1fr) !important;}
+
+/* v47 fixes */
+.infoLine{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}
+#flightTab{
+  display:block !important;
+}
+.dataTabs{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}

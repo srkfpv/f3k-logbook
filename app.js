@@ -1,5 +1,5 @@
 
-const APP_BUILD = '46.0';
+const APP_BUILD = '47.0';
 const LOG_DIR = 'logs/';
 const CACHE_BUST = 'v46-' + Date.now();
 
@@ -17,6 +17,7 @@ const state = {
   x0: 0, x1: 120, y0: 0, y1: 80,
   drag: null,
   pointers: new Map(),
+  pinch: null,
   momentum: null,
   hideBubblesUntil: 0,
   raf: 0,
@@ -57,6 +58,7 @@ function fmtHMS(s){
 }
 function best(a,k){ return a.length ? [...a].sort((x,y)=>(y[k]||0)-(x[k]||0))[0] : null; }
 function top10Flights(){ return [...state.flights].sort((a,b)=>b.duration-a.duration).slice(0,10); }
+function sessionsCount(){ return new Set(state.flights.map(f=>f.date)).size; }
 function flightsShown(){ let a=top10Flights(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a; }
 
 async function loadFlightFile(f){
@@ -91,12 +93,15 @@ async function loadRepoLogs(){
   state.flights = rows.map(r => {
     const [date,time,lnh,maxAlt,duration,file] = r;
     const yr = yearFromFile(file);
+    const rawLnh=+lnh, rawMax=+maxAlt;
+    const fixedLaunch = rawLnh > rawMax ? rawMax : rawLnh;
+    const fixedMax = rawLnh > rawMax ? rawLnh : rawMax;
     return {
       date,time,year:yr,file,
-      launchAlt:+lnh,
-      maxAlt:+maxAlt,
+      launchAlt:fixedLaunch,
+      maxAlt:fixedMax,
       duration:+duration,
-      gain:+maxAlt-+lnh,
+      gain:fixedMax-fixedLaunch,
       pts:[],
       loaded:false
     };
@@ -206,12 +211,13 @@ function renderSummary(){
   const a=state.flights;
   const total=a.reduce((s,f)=>s+f.duration,0);
   const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration');
+  const ms=$('mSessions'); if(ms) ms.textContent=sessionsCount();
   $('mFlights').textContent = a.length;
   $('mTime').textContent = fmtHMS(total);
   $('mLongest').textContent = fmtTime(longest ? longest.duration : 0);
   $('mMaxAlt').textContent = (maxAlt ? Math.round(maxAlt.maxAlt) : 0) + ' m';
   $('mLaunch').textContent = (launch ? Math.round(launch.launchAlt) : 0) + ' m';
-  $('mGain').textContent = (gain ? fmtGain(gain.gain) : '–') + (gain && gain.gain ? ' m' : '');
+  $('mGain').textContent = gain ? (fmtGain(gain.gain) + (Math.round(gain.gain||0)===0 ? '' : ' m')) : '–';
 }
 function renderTable(){
   const tb=$('logRows');
@@ -250,9 +256,10 @@ function chartRecordColor(){ return css('--recordChart') || '#db2777'; }
 function fitView(redraw=true){
   const a=flightsShown();
   const base=state.single ? a : top10Flights();
-  const dur=Math.max(60,...a.map(f=>f.duration));
-  const maxY=Math.max(30,...base.map(f=>f.maxAlt))*1.08;
+  const dur=Math.max(60,...base.map(f=>f.duration||0));
+  const maxY=Math.max(30,...base.map(f=>f.maxAlt||0))*1.08;
   state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10;
+  clampXRange();
   if(redraw) drawChart();
 }
 function updateFitButton(){
@@ -406,6 +413,40 @@ function drawChart(){
   });
 }
 
+
+function chartMaxDuration(){
+  const base = state.single ? [state.single] : top10Flights();
+  return Math.max(60, ...base.map(f=>f.duration||0));
+}
+function clampXRange(){
+  const maxDur = chartMaxDuration();
+  let span = state.x1 - state.x0;
+  const minSpan = Math.min(8, maxDur);
+  const maxSpan = Math.max(10, maxDur);
+  if(span < minSpan){
+    const mid=(state.x0+state.x1)/2;
+    span=minSpan;
+    state.x0=mid-span/2;
+    state.x1=mid+span/2;
+  }
+  if(span > maxSpan){
+    state.x0=0;
+    state.x1=maxDur;
+    return;
+  }
+  if(state.x0 < 0){
+    state.x1 -= state.x0;
+    state.x0 = 0;
+  }
+  if(state.x1 > maxDur){
+    const d = state.x1 - maxDur;
+    state.x0 -= d;
+    state.x1 = maxDur;
+  }
+  if(state.x0 < 0) state.x0=0;
+  if(state.x1 > maxDur) state.x1=maxDur;
+}
+
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function stopMomentum(){ if(state.momentum){ cancelAnimationFrame(state.momentum.raf); state.momentum=null; } }
 function pointerDown(e){
@@ -415,11 +456,32 @@ function pointerDown(e){
   state.pointers.set(e.pointerId,p);
   state.hideBubblesUntil=Date.now()+240;
   if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,lastX:p.x,lastT:now,vx:0};
+  if(state.pointers.size===2){
+    const ps=[...state.pointers.values()];
+    const dist=Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y);
+    const mid=(ps[0].x+ps[1].x)/2;
+    state.pinch={dist,mid,x0:state.x0,x1:state.x1};
+    state.drag=null;
+  }
 }
 function pointerMove(e){
   if(!state.pointers.has(e.pointerId)) return;
   const p=point(e);
   state.pointers.set(e.pointerId,p);
+  if(state.pointers.size===2 && state.pinch){
+    e.preventDefault();
+    const ps=[...state.pointers.values()];
+    const dist=Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y);
+    const r=frame.getBoundingClientRect();
+    const center=state.pinch.x0+(state.pinch.mid-M.l)/(r.width-M.l-M.r)*(state.pinch.x1-state.pinch.x0);
+    const scale=state.pinch.dist/Math.max(1,dist);
+    const span=(state.pinch.x1-state.pinch.x0)*scale;
+    state.x0=center-(center-state.pinch.x0)*scale;
+    state.x1=state.x0+span;
+    clampXRange();
+    drawChart();
+    return;
+  }
   if(!state.drag) return;
   e.preventDefault();
   const r=frame.getBoundingClientRect();
@@ -427,6 +489,7 @@ function pointerMove(e){
   const dx=p.x-state.drag.x;
   state.x0=state.drag.x0-dx/(r.width-M.l-M.r)*span;
   state.x1=state.drag.x1-dx/(r.width-M.l-M.r)*span;
+  clampXRange();
 
   const now=performance.now(), dt=Math.max(1,now-state.drag.lastT);
   state.drag.vx=(p.x-state.drag.lastX)/dt;
@@ -435,6 +498,7 @@ function pointerMove(e){
 }
 function pointerUp(e){
   state.pointers.delete(e.pointerId);
+  if(state.pointers.size<2) state.pinch=null;
   if(state.drag){
     const vx=state.drag.vx;
     state.drag=null;
@@ -451,6 +515,7 @@ function startMomentum(vx){
     const dx=v*dt;
     state.x0-=dx/(r.width-M.l-M.r)*span;
     state.x1-=dx/(r.width-M.l-M.r)*span;
+    clampXRange();
     v*=.94;
     drawChart();
     if(Math.abs(v)>.01) state.momentum={raf:requestAnimationFrame(tick)};
@@ -465,7 +530,7 @@ function wheelZoom(e){
   const scale=e.deltaY<0?.88:1.14;
   const nx0=mx-(mx-state.x0)*scale;
   const nx1=mx+(state.x1-mx)*scale;
-  if(nx1-nx0>10){state.x0=nx0;state.x1=nx1;}
+  if(nx1-nx0>6){state.x0=nx0;state.x1=nx1; clampXRange();}
   drawChart();
 }
 
