@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0, chartAnimUntil:0, chartBubbleAnimUntil:0, chartDrawStart:0,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -12,13 +12,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-wor
 init();
 async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showLoad(false);renderAll();requestAnimationFrame(drawChart);}
 
-function restartPanelAnimation(){
-  const p=document.querySelector('.detailsPanel,.chartPanel,.tablePanel');
-  if(!p) return;
-  p.classList.remove('panelAnim');
-  void p.offsetWidth;
-  p.classList.add('panelAnim');
-}
+
 
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
@@ -45,7 +39,7 @@ function bindUI(){
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
-function setDataMode(m,opt={}){ restartPanelAnimation(); startChartAnimation();
+function setDataMode(m,opt={}){  
   if(state.dataMode==='table') state.tableScroll=$('tablePanel').scrollTop||0;
   state.dataMode=m;
   if(m==='session'){
@@ -125,7 +119,7 @@ function sessionDates(desc=true){
   const arr=[...map.values()].sort((a,b)=>desc?b.v-a.v:a.v-b.v);
   return arr;
 }
-function setPeriodMode(mode){ startChartAnimation();
+function setPeriodMode(mode){ 
   state.openDate=true;
   state.rangeMode=mode;
   state.allTime=mode==='all';
@@ -220,7 +214,7 @@ function datesBetween(a,b){
   return out;
 }
 function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
-function selectCalendarDate(date,isDouble){ startChartAnimation();
+function selectCalendarDate(date,isDouble){ 
   state.openDate=true;
   state.rangeMode='dates';
   state.allTime=false;
@@ -251,7 +245,7 @@ function selectCalendarDate(date,isDouble){ startChartAnimation();
 
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
-function focusMetric(k){ document.querySelectorAll('.recordCard').forEach(c=>{c.classList.remove('recordPulse'); if(c.dataset.focus===k){void c.offsetWidth;c.classList.add('recordPulse');}});state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setDataMode('flight'); fitView(); renderAll();}
+function focusMetric(k){ state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setDataMode('flight'); fitView(); renderAll();}
 function setActiveRecord(k){document.querySelectorAll('.recordCard').forEach(b=>b.classList.toggle('active',b.dataset.focus===k));}
 function valueForSort(f,k){
   if(k==='datetime') return f.year*100000000+dateNum(f.date)*10000+timeNum(f.time);
@@ -301,35 +295,10 @@ function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} funct
 
 
 
-function startChartAnimation(){
-  state.chartDrawStart = performance.now();
-  state.chartAnimUntil = state.chartDrawStart + 520;
-  state.chartBubbleAnimUntil = state.chartDrawStart + 760;
-  requestAnimationFrame(drawChart);
-}
-function chartAnimProgress(){
-  if(!state.chartDrawStart) return 1;
-  const p=(performance.now()-state.chartDrawStart)/520;
-  if(p>=1) return 1;
-  if(p<=0) return 0;
-  return 1-Math.pow(1-p,3);
-}
-function bubbleAnimProgress(){
-  if(!state.chartDrawStart) return 1;
-  const p=(performance.now()-state.chartDrawStart-520)/240;
-  if(p>=1) return 1;
-  if(p<=0) return 0;
-  return 1-Math.pow(1-p,3);
-}
+
 
 function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{updateFitButton(); const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h);
-  const __animP=chartAnimProgress(); drawGrid(w,h);
-  /* v34 trace clip */
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(M.l, M.t, (w-M.l-M.r)*__animP, h-M.t-M.b);
-  ctx.clip();
-  let __v34Clipped=true;
+drawGrid(w,h);
   ctx.save();
   ctx.beginPath();
   ctx.rect(M.l, M.t, (w-M.l-M.r)*__animP, h-M.t-M.b);
@@ -381,8 +350,6 @@ function stableMaxPoint(f){
 }
 
 function drawSingleMarkers(f,w,h){
-  if(chartAnimProgress()<1){ requestAnimationFrame(drawChart); return; }
-  const __bubbleP=bubbleAnimProgress();
   const pts=f.pts||[]; if(!pts.length)return;
 
   // Stable absolute markers:
@@ -453,23 +420,12 @@ function drawBubble(label,px,py,w,h,type,color){
   }
   if(lx===null)return;
 
-  const bp=bubbleAnimProgress();
-  if(bp<=0) return;
-  const scale=.82+.18*bp;
-  const cx=lx+tw/2, cy=ly+th/2;
-
-  ctx.save();
-  ctx.globalAlpha=bp;
-  ctx.translate(cx,cy);
-  ctx.scale(scale,scale);
-  ctx.translate(-cx,-cy);
   ctx.fillStyle=css('--panel')||'#fff';
   ctx.strokeStyle=color;
   roundRect(ctx,lx,ly,tw,th,6); ctx.fill();
-  ctx.save();ctx.globalAlpha=.7*bp;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha=.55;ctx.lineWidth=.8;ctx.stroke();ctx.restore();
   ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(label,cx,cy);
-  ctx.restore();
+  ctx.fillText(label,lx+tw/2,ly+th/2);
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
