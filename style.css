@@ -501,3 +501,53 @@ footer,
 }
 
 /* v51 robust log load */
+
+/* v52 top 10 details polish */
+.chartTop{
+  min-height:0 !important;
+  margin-bottom:0 !important;
+}
+.chartTitle span:empty,
+.chartTitle small:empty{
+  display:none !important;
+}
+.chartTitle:has(span:empty):has(small:empty){
+  display:none !important;
+}
+.chartFrame{
+  min-height:360px;
+}
+.tableTitle{
+  display:none !important;
+}
+.tablePanel th.durationCol,
+.tablePanel td.durationCell{
+  color:var(--accent);
+  font-weight:850;
+  background:color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.timeCell{
+  color:var(--muted) !important;
+}
+.rank1,
+.rank2,
+.rank3{
+  background:transparent !important;
+}
+.rankNum{
+  font-weight:700 !important;
+  color:var(--text) !important;
+}
+.rankStar{
+  width:18px;
+  text-align:center !important;
+  font-size:12px;
+  letter-spacing:0;
+}
+.rank1 .rankStar{color:#C9A227;}
+.rank2 .rankStar{color:#A8A8A8;}
+.rank3 .rankStar{color:#B07A3A;}
+.rankBadge,
+.rankDot{
+  display:none !important;
+}

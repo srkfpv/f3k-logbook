@@ -1,7 +1,7 @@
 
-const APP_BUILD = '51.0';
+const APP_BUILD = '52.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v51-' + Date.now();
+const CACHE_BUST = 'v52-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -304,7 +304,8 @@ function renderTable(){
   top10Flights().forEach((f,idx)=>{
     const tr=document.createElement('tr');
     tr.className = (state.single && state.single.file===f.file ? 'selectedRow ' : '') + (idx<3 ? `rank rank${idx+1}` : '');
-    tr.innerHTML = `<td class="rankNum">${idx+1}</td><td>${f.date}</td><td>${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
+    const star = idx===0?'★':idx===1?'★':idx===2?'★':'';
+    tr.innerHTML = `<td class="rankNum">${idx+1}</td><td class="rankStar">${star}</td><td>${f.date}</td><td class="timeCell">${f.time}</td><td class="durationCell">${fmtTime(f.duration)}</td><td>${Math.round(f.maxAlt)}</td><td>${Math.round(f.launchAlt)}</td><td><span>${fmtGain(f.gain)}</span><i class="rowChevron">›</i></td>`;
     tr.onclick = async () => {
       state.single = f;
       state.focus = null;
@@ -355,7 +356,7 @@ function updateChartHeader(){
     $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
     $('chartSub').textContent=`FLIGHT TOP ${i>=0?i+1:'—'} OF ${Math.min(10,state.flights.length)}`;
   }else{
-    $('chartLabel').textContent='TOP 10 LONGEST FLIGHTS';
+    $('chartLabel').textContent='';
     $('chartSub').textContent='';
   }
 }
