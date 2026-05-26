@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -24,6 +24,7 @@ function bindUI(){
   $('tableTab').onclick=()=>setDataMode('table');
   $('prevFlightBtn').onclick=()=>stepFlight(-1);
   $('nextFlightBtn').onclick=()=>stepFlight(1);
+  $('chartFitBtn').onclick=(e)=>{e.stopPropagation();fitView();drawChart();};
   document.querySelectorAll('.recordCard').forEach(b=>b.onclick=()=>focusMetric(b.dataset.focus));
   document.querySelectorAll('.sortable').forEach(th=>th.onclick=()=>sortBy(th.dataset.k));
   frame.addEventListener('dblclick',()=>{fitView();drawChart();});
@@ -189,11 +190,12 @@ function renderTable(){
 }
 function fmtGain(v){v=Math.round(v||0);return v===0?'–':(v>0?'+'+v:String(v));}
 function fmtTime(s){s=Math.round(s||0);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} function fmtHMS(s){s=Math.round(s||0);return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
-function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const dur=Math.max(60,...a.map(f=>f.duration)); const maxY=Math.max(30,...(state.single?a:base).map(f=>f.maxAlt))*1.08; state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10; if(redraw)drawChart();}
+function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const dur=Math.max(60,...a.map(f=>f.duration)); const maxY=Math.max(30,...(state.single?a:base).map(f=>f.maxAlt))*1.08; state.x0=0; state.x1=dur; state.y0=0; state.y1=Math.ceil(maxY/10)*10; state.fitX0=state.x0; state.fitX1=state.x1; state.fitY0=state.y0; state.fitY1=state.y1; updateFitButton(); if(redraw)drawChart();}
+function updateFitButton(){const b=$('chartFitBtn'); if(!b)return; const eps=.5; const active=Math.abs(state.x0-state.fitX0)>eps||Math.abs(state.x1-state.fitX1)>eps||Math.abs(state.y0-state.fitY0)>eps||Math.abs(state.y1-state.fitY1)>eps; b.classList.toggle('active',active); b.setAttribute('aria-disabled',active?'false':'true');}
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
-function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); updateChartHeader(); if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); if(state.single) drawSingleMarkers(state.single,w,h); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{updateFitButton(); const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); updateChartHeader(); if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); if(state.single) drawSingleMarkers(state.single,w,h); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
 function updateChartHeader(){
   const single=!!state.single;
   $('prevFlightBtn').classList.toggle('hidden',!single);
@@ -213,23 +215,53 @@ function drawSingleMarkers(f,w,h){
   const endPt=pts[pts.length-1];
   const color=chartRecordColor();
   ctx.save();
-  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=1;
-  [[maxPt,4.2],[endPt,3.8]].forEach(([p,r])=>{ctx.beginPath();ctx.arc(sx(p.t,w),sy(p.alt,h),r,0,Math.PI*2);ctx.fill();});
-  // subtle max altitude label
+
+  // max altitude point: pink fill with panel outline so it stays visible on chart line
   const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
-  const label=`MAX ${Math.round(f.maxAlt)} m`;
+  ctx.beginPath();
+  ctx.arc(mx,my,5.2,0,Math.PI*2);
+  ctx.fillStyle=color;
+  ctx.fill();
+  ctx.lineWidth=2.2;
+  ctx.strokeStyle=css('--panel')||'#fff';
+  ctx.stroke();
+
+  // end / duration point
+  const ex=sx(endPt.t,w), ey=sy(endPt.alt,h);
+  ctx.beginPath();
+  ctx.arc(ex,ey,4.5,0,Math.PI*2);
+  ctx.fillStyle=color;
+  ctx.fill();
+  ctx.lineWidth=2;
+  ctx.strokeStyle=css('--panel')||'#fff';
+  ctx.stroke();
+
+  // max altitude bubble
+  const maxLabel=`MAX ${Math.round(f.maxAlt)} m`;
+  ctx.font='800 9px ui-monospace,monospace';
+  drawBubble(maxLabel,mx,my,w,h,'max',color);
+
+  // duration bubble: attached to end point, kept away from the seconds axis label
+  const durLabel=`DUR ${fmtTime(f.duration)}`;
+  drawBubble(durLabel,ex,ey,w,h,'duration',color);
+  ctx.restore();
+}
+function drawBubble(label,px,py,w,h,type,color){
   ctx.font='800 9px ui-monospace,monospace';
   const tw=ctx.measureText(label).width+12, th=20;
-  let lx=Math.min(Math.max(mx+8,M.l+4),w-M.r-tw-4), ly=Math.max(my-28,M.t+4);
-  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()||'#fff';
-  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line2').trim()||'#ddd';
+  let lx,ly;
+  if(type==='duration'){
+    lx=Math.min(Math.max(px-tw-8,M.l+4),w-M.r-tw-4);
+    ly=Math.min(Math.max(py+10,M.t+4),h-M.b-th-24);
+  }else{
+    lx=Math.min(Math.max(px+8,M.l+4),w-M.r-tw-4);
+    ly=Math.max(py-28,M.t+4);
+  }
+  ctx.fillStyle=css('--panel')||'#fff';
+  ctx.strokeStyle=css('--line2')||'#ddd';
   roundRect(ctx,lx,ly,tw,th,6); ctx.fill(); ctx.stroke();
-  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label,lx+tw/2,ly+th/2);
-  // duration: small, quiet, along the bottom inside the plot
-  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#777';
-  ctx.globalAlpha=.72; ctx.textAlign='right'; ctx.font='800 9px ui-monospace,monospace';
-  ctx.fillText(`DUR ${fmtTime(f.duration)}`, w-M.r-6, h-M.b-10);
-  ctx.restore();
+  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(label,lx+tw/2,ly+th/2);
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
@@ -261,7 +293,7 @@ function pointerDown(e){
   if(state.pointers.size===1) state.drag={x:p.x,y:p.y,x0:state.x0,x1:state.x1,mode:null};
   if(state.pointers.size===2){
     e.preventDefault();
-    const ps=[...state.pointers.values()], dist=Math.abs(ps[0].x-ps[1].x), mid=(ps[0].x+ps[1].x)/2;
+    const ps=[...state.pointers.values()], dist=Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y), mid=(ps[0].x+ps[1].x)/2;
     state.pinch={dist,mid,x0:state.x0,x1:state.x1};
     state.drag=null;
   }
@@ -272,7 +304,7 @@ function pointerMove(e){
   state.pointers.set(e.pointerId,p);
   if(state.pointers.size===2&&state.pinch){
     e.preventDefault();
-    const ps=[...state.pointers.values()], dist=Math.max(24,Math.abs(ps[0].x-ps[1].x)), mid=(ps[0].x+ps[1].x)/2;
+    const ps=[...state.pointers.values()], dist=Math.max(24,Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y)), mid=(ps[0].x+ps[1].x)/2;
     const oldSpan=state.pinch.x1-state.pinch.x0, newSpan=oldSpan*(state.pinch.dist/dist), center=state.pinch.x0+(state.pinch.x1-state.pinch.x0)/2+(state.pinch.mid-mid)/(w-M.l-M.r)*newSpan;
     state.x0=center-newSpan/2; state.x1=center+newSpan/2; clampView(); drawChart(); return;
   }
