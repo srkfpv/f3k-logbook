@@ -40,7 +40,20 @@ function bindUI(){
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
-function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
+
+function updateLoadProgress(done,total){
+  const el=document.getElementById('logStatus');
+  if(!el) return;
+  if(total<=0){
+    el.textContent='ver. 38.0 • loading logs…';
+    return;
+  }
+  const pct=Math.round((done/total)*100);
+  el.textContent=`ver. 38.0 • loading ${pct}%`;
+}
+
+function showLoad(v){
+state.loading=v;$('loader').classList.toggle('hidden',!v);}
 function setLogStatus(text){const el=$('logStatus'); if(el) el.textContent=text||'';}
 function bustUrl(url){const sep=String(url).includes('?')?'&':'?';return url+sep+'cb='+encodeURIComponent(LOGS_CACHE_BUST);}
 
