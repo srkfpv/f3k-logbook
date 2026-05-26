@@ -215,3 +215,13 @@ button[data-mode="flight"]{
 .durationBubble{
   border-width:1px !important;
 }
+
+/* v29 stable max marker */
+.chartBubble,
+.chart-bubble,
+.markerBubble,
+.marker-bubble,
+.maxAltBubble,
+.durationBubble{
+  border-width:1px !important;
+}

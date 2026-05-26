@@ -214,22 +214,52 @@ function updateChartHeader(){
   if(single){
     const i=flightIndex();
     $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
-    $('chartSub').textContent=`SINGLE ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
+    $('chartSub').textContent=`FLIGHT ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
   }else{
-    $('chartLabel').textContent='ALL SINGLES';
+    $('chartLabel').textContent='ALL FLIGHTS';
     $('chartSub').textContent='OVERLAY';
   }
 }
+
+function stableMaxPoint(f){
+  if(!f || !Array.isArray(f.pts) || !f.pts.length) return null;
+  if(f.__stableMaxPoint && f.__stableMaxPoint.file===f.file) return f.__stableMaxPoint;
+  const target = Number.isFinite(+f.maxAlt) ? +f.maxAlt : null;
+  let bestPoint = f.pts[0];
+
+  if(target !== null){
+    // Use the absolute index.csv max altitude when available, then choose the
+    // first full-log point closest to that value. Never use the visible slice.
+    let bestDiff = Infinity;
+    for(const p of f.pts){
+      const d = Math.abs((+p.alt) - target);
+      if(d < bestDiff){
+        bestDiff = d;
+        bestPoint = p;
+      }
+    }
+  }else{
+    for(const p of f.pts){
+      if((+p.alt) > (+bestPoint.alt)) bestPoint = p;
+    }
+  }
+
+  f.__stableMaxPoint = {
+    file: f.file,
+    t: +bestPoint.t,
+    alt: target !== null ? target : +bestPoint.alt
+  };
+  return f.__stableMaxPoint;
+}
+
 function drawSingleMarkers(f,w,h){
   const pts=f.pts||[]; if(!pts.length)return;
 
-  // IMPORTANT:
-  // The max-alt marker must be calculated from the complete flight, not from
-  // the currently visible/zoomed chart window. Otherwise, during horizontal pan
-  // it "walks" along the line and changes value. The marker below is absolute:
-  // same data point, same value, hidden only when that data point is outside
-  // the visible viewport.
-  const maxPt=pts.reduce((a,b)=>b.alt>a.alt?b:a,pts[0]);
+  // Stable absolute markers:
+  // MAX is anchored to the full-flight max point, never to the currently
+  // visible chart slice. It disappears when outside the viewport instead of
+  // being recalculated at the edge of the visible window.
+  const maxPt=stableMaxPoint(f);
   const endPt=pts[pts.length-1];
   const color=chartRecordColor();
   const panel=css('--panel')||'#fff';
@@ -237,19 +267,21 @@ function drawSingleMarkers(f,w,h){
 
   ctx.save();
 
-  const maxVisible=maxPt.t>=state.x0&&maxPt.t<=state.x1&&maxPt.alt>=state.y0&&maxPt.alt<=state.y1;
-  if(maxVisible){
-    const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
-    ctx.beginPath();
-    ctx.arc(mx,my,5.4,0,Math.PI*2);
-    ctx.fillStyle=color;
-    ctx.fill();
-    ctx.lineWidth=2.8;
-    ctx.strokeStyle=panel;
-    ctx.stroke();
-    if(!hideBubbles){
-      ctx.font='800 9px ui-monospace,monospace';
-      drawBubble(`MAX ${Math.round(maxPt.alt)} m`,mx,my,w,h,'max',color);
+  if(maxPt){
+    const maxVisible=maxPt.t>=state.x0&&maxPt.t<=state.x1&&maxPt.alt>=state.y0&&maxPt.alt<=state.y1;
+    if(maxVisible){
+      const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
+      ctx.beginPath();
+      ctx.arc(mx,my,5.8,0,Math.PI*2);
+      ctx.fillStyle=color;
+      ctx.fill();
+      ctx.lineWidth=3;
+      ctx.strokeStyle=panel;
+      ctx.stroke();
+      if(!hideBubbles){
+        ctx.font='800 9px ui-monospace,monospace';
+        drawBubble(`MAX ${Math.round(maxPt.alt)} m`,mx,my,w,h,'max',color);
+      }
     }
   }
 
@@ -274,18 +306,34 @@ function drawSingleMarkers(f,w,h){
 function drawBubble(label,px,py,w,h,type,color){
   ctx.font='800 9px ui-monospace,monospace';
   const tw=ctx.measureText(label).width+12, th=20;
-  let lx,ly;
-  if(type==='duration'){
-    lx=px-tw-8;
-    ly=py-30;
-  }else{
-    lx=px+8;
-    ly=py-30;
-  }
-  // Bubbles are anchored to their data points. If the anchor leaves the plot area,
-  // the bubble disappears instead of sticking to the chart edge.
   if(px<M.l||px>w-M.r||py<M.t||py>h-M.b)return;
-  if(lx<M.l+2||lx+tw>w-M.r-2||ly<M.t+2||ly+th>h-M.b-2)return;
+
+  let candidates;
+  if(type==='duration'){
+    candidates=[
+      [px-tw-8, py-30],
+      [px-tw-8, py+10],
+      [px+8, py-30],
+      [px+8, py+10]
+    ];
+  }else{
+    candidates=[
+      [px+8, py-30],
+      [px+8, py+10],
+      [px-tw-8, py-30],
+      [px-tw-8, py+10]
+    ];
+  }
+
+  let lx=null, ly=null;
+  for(const c of candidates){
+    const x=c[0], y=c[1];
+    if(x>=M.l+2 && x+tw<=w-M.r-2 && y>=M.t+2 && y+th<=h-M.b-2){
+      lx=x; ly=y; break;
+    }
+  }
+  if(lx===null)return;
+
   ctx.fillStyle=css('--panel')||'#fff';
   ctx.strokeStyle=color;
   ctx.globalAlpha=1;
