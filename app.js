@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
-const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',single:null,focus:null,sortKey:null,sortDir:-1,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
+const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,pointers:new Map(),drag:null,pinch:null,raf:0,loading:false};
 function chartBaseColor(){return css('--baseChart')||'#888';}
 function chartRecordColor(){return css('--recordChart')||'#8f1d1d';}
 const RECORD_COLORS={maxAlt:null,launchAlt:null,gain:null,duration:null};
@@ -14,21 +14,53 @@ async function init(){bindUI();loadTheme();showLoad(true);await loadLogs();showL
 function bindUI(){
   $('themeBtn').onclick=()=>{document.documentElement.classList.toggle('light');localStorage.setItem('f3kTheme',document.documentElement.classList.contains('light')?'light':'dark');$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';drawChart();};
   $('dateToggle').onclick=()=>{state.openDate=!state.openDate;renderDate();};
-  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
-  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
-  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;fitView();renderAll();};
+  $('lastBtn').onclick=()=>{state.rangeMode='last';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
+  $('last10Btn').onclick=()=>{state.rangeMode='last10';state.allTime=false;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
+  $('allTimeBtn').onclick=()=>{state.rangeMode='all';state.allTime=true;state.selDates.clear();state.rangeStart=null;state.rangeEnd=null;state.single=null;setDataMode('session',{resetTable:true});fitView();renderAll();};
   $('prevMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(-1);};
   $('nextMonthBtn').onclick=(e)=>{e.stopPropagation();shiftMonth(1);};
-  $('chartsTab').onclick=()=>setMode('charts'); $('tableTab').onclick=()=>setMode('table');
-  $('fitBtn').onclick=()=>{fitView();drawChart();}; $('backBtn').onclick=()=>{state.single=null;state.focus=null;setActiveRecord(null);fitView();renderAll();};
+  $('sessionTab').onclick=()=>setDataMode('session',{resetTable:true});
+  $('flightTab').onclick=()=>setDataMode('flight');
+  $('tableTab').onclick=()=>setDataMode('table');
+  $('prevFlightBtn').onclick=()=>stepFlight(-1);
+  $('nextFlightBtn').onclick=()=>stepFlight(1);
   document.querySelectorAll('.recordCard').forEach(b=>b.onclick=()=>focusMetric(b.dataset.focus));
   document.querySelectorAll('.sortable').forEach(th=>th.onclick=()=>sortBy(th.dataset.k));
+  frame.addEventListener('dblclick',()=>{fitView();drawChart();});
+  let lastTap=0; frame.addEventListener('touchend',()=>{const now=Date.now(); if(now-lastTap<320){fitView();drawChart();} lastTap=now;},{passive:true});
   frame.addEventListener('pointerdown',pointerDown); frame.addEventListener('pointermove',pointerMove); frame.addEventListener('pointerup',pointerUp); frame.addEventListener('pointercancel',pointerUp); frame.addEventListener('wheel',wheelZoom,{passive:false});
   new ResizeObserver(()=>drawChart()).observe(frame);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 function showLoad(v){state.loading=v;$('loader').classList.toggle('hidden',!v);}
-function setMode(m){if(m==='table'){state.focus=null;state.single=null;setActiveRecord(null);} state.viewMode=m;$('chartsTab').classList.toggle('active',m==='charts');$('tableTab').classList.toggle('active',m==='table');$('chartPanel').classList.toggle('hidden',m!=='charts');$('tablePanel').classList.toggle('hidden',m!=='table');$('fitBtn').disabled=m!=='charts'; if(m==='charts') setTimeout(drawChart,0);}
+function setDataMode(m,opt={}){
+  if(state.dataMode==='table') state.tableScroll=$('tablePanel').scrollTop||0;
+  state.dataMode=m;
+  if(m==='session'){
+    state.viewMode='charts'; state.single=null; state.focus=null; setActiveRecord(null);
+    if(opt.resetTable){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0;}
+  }
+  if(m==='flight'){
+    state.viewMode='charts';
+    if(!state.single){state.single=best(flightsBase(),'duration')||flightsBase()[0]||null;}
+  }
+  if(m==='table'){
+    state.viewMode='table';
+  }
+  $('sessionTab').classList.toggle('active',m==='session');
+  $('flightTab').classList.toggle('active',m==='flight');
+  $('tableTab').classList.toggle('active',m==='table');
+  $('chartPanel').classList.toggle('hidden',m==='table');
+  $('tablePanel').classList.toggle('hidden',m!=='table');
+  renderTableHeader();
+  if(m==='table') setTimeout(()=>$('tablePanel').scrollTop=state.tableScroll||0,0);
+  if(m!=='table'){fitView(false);setTimeout(drawChart,0);}
+}
+function setMode(m){setDataMode(m==='table'?'table':'session');}
+function flightIndex(){const a=flightsBase(); if(!a.length||!state.single)return -1; return a.findIndex(f=>f.file===state.single.file);}
+function stepFlight(dir){const a=flightsBase(); if(!a.length)return; let i=flightIndex(); if(i<0)i=0; i=(i+dir+a.length)%a.length; state.single=a[i]; state.focus=null; setActiveRecord(null); setDataMode('flight'); fitView(); renderAll();}
+function resetTableState(){state.sortKey='datetime';state.sortDir=-1;state.tableScroll=0;}
+
 
 const DB_NAME='f3k-logbook-db';
 const DB_STORE='files';
@@ -58,7 +90,7 @@ function dateNum(d){const [dd,mm]=d.split('/').map(Number);return mm*100+dd;} fu
 function parseCsv(txt){const lines=(txt||'').trim().split(/\r?\n/).filter(Boolean), pts=[]; for(let i=1;i<lines.length;i++){const p=lines[i].split(','); const t=+p[0], alt=+p[1]; if(Number.isFinite(t)&&Number.isFinite(alt)) pts.push({t,alt});} return pts;}
 function flightsBase(){let a=state.flights; if(state.rangeMode==='last'){const last=[...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time)))[0]; return last?state.flights.filter(f=>f.date===last.date):[];} if(state.rangeMode==='last10'){return [...state.flights].sort((x,y)=>(y.year*10000+dateNum(y.date)+timeNum(y.time))-(x.year*10000+dateNum(x.date)+timeNum(x.time))).slice(0,10).sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));} if(state.rangeMode==='dates'&&state.selDates.size) return a.filter(f=>state.selDates.has(f.date)); return a;}
 function flightsShown(){let a=flightsBase(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
-function renderAll(){renderDate();renderSummary();renderTable();fitView(false);drawChart();}
+function renderAll(){renderDate();renderSummary();renderTable();renderTableHeader();fitView(false);drawChart();}
 function formatFullDate(d){const [dd,mm]=String(d).split('/');return `${dd}/${mm}/${state.year}`;}
 function dateLabelText(){
   if(state.rangeMode==='last') return 'LAST SESSION';
@@ -110,7 +142,7 @@ function datesBetween(a,b){
 }
 function applyDateRange(a,b){state.selDates.clear(); datesBetween(a,b).forEach(d=>state.selDates.add(d));}
 function selectCalendarDate(date,isDouble){
-  state.rangeMode='dates'; state.allTime=false; state.single=null; state.focus=null; setActiveRecord(null);
+  state.rangeMode='dates'; state.allTime=false; state.single=null; state.focus=null; setActiveRecord(null); setDataMode('session',{resetTable:true});
   if(isDouble){state.rangeStart=date; state.rangeEnd=date; applyDateRange(date,date); fitView(); renderAll(); return;}
   if(!state.rangeStart || state.rangeEnd){state.rangeStart=date; state.rangeEnd=null; state.selDates.clear(); state.selDates.add(date);}
   else{state.rangeEnd=date; applyDateRange(state.rangeStart,state.rangeEnd);}
@@ -119,21 +151,39 @@ function selectCalendarDate(date,isDouble){
 
 function renderSummary(){const a=flightsBase(), total=a.reduce((s,f)=>s+f.duration,0); const maxAlt=best(a,'maxAlt'), launch=best(a,'launchAlt'), gain=best(a,'gain'), longest=best(a,'duration'); $('mFlights').textContent=a.length; $('mTime').textContent=fmtHMS(total); $('mMaxAlt').textContent=(maxAlt?Math.round(maxAlt.maxAlt):0)+' m'; $('mLaunch').textContent=(launch?Math.round(launch.launchAlt):0)+' m'; $('mGain').textContent=(gain?Math.round(gain.gain):0)+' m'; $('mLongest').textContent=fmtTime(longest?longest.duration:0);}
 function best(a,k){return a.length?[...a].sort((x,y)=>y[k]-x[k])[0]:null;}
-function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setMode('charts'); fitView(); renderAll();}
+function focusMetric(k){state.focus=k; const key={maxAlt:'maxAlt',launch:'launchAlt',gain:'gain',longest:'duration'}[k]; state.single=best(flightsBase(),key); setActiveRecord(k); setDataMode('flight'); fitView(); renderAll();}
 function setActiveRecord(k){document.querySelectorAll('.recordCard').forEach(b=>b.classList.toggle('active',b.dataset.focus===k));}
-function sortBy(k){state.sortDir=state.sortKey===k?-state.sortDir:1;state.sortKey=k; document.querySelectorAll('.sortable').forEach(th=>{const on=th.dataset.k===k; th.classList.toggle('sorted',on); th.dataset.arrow=on?(state.sortDir>0?'▼':'▲'):'';}); renderTable();}
+function valueForSort(f,k){
+  if(k==='datetime') return f.year*100000000+dateNum(f.date)*10000+timeNum(f.time);
+  if(k==='time') return timeNum(f.time);
+  return Number(f[k]||0);
+}
+function renderTableHeader(){
+  document.querySelectorAll('.sortable').forEach(th=>{
+    const on=th.dataset.k===state.sortKey;
+    th.classList.toggle('sorted',on);
+    th.dataset.arrow=on?(state.sortDir>0?'▲':'▼'):'';
+  });
+}
+function sortBy(k){
+  state.sortDir=state.sortKey===k?-state.sortDir:(k==='datetime'||k==='time'?-1:1);
+  state.sortKey=k;
+  renderTable(); renderTableHeader();
+  $('tablePanel').scrollTop=0; state.tableScroll=0;
+}
 function renderTable(){
   const tb=$('logRows'); tb.innerHTML='';
   let rows=[...flightsBase()];
-  if(state.sortKey) rows.sort((a,b)=>(b[state.sortKey]-a[state.sortKey])*state.sortDir);
+  rows.sort((a,b)=>(valueForSort(a,state.sortKey)-valueForSort(b,state.sortKey))*state.sortDir);
   const rankMaps={};
   ['launchAlt','maxAlt','gain','duration'].forEach(k=>{
     rankMaps[k]=new Map([...rows].sort((a,b)=>b[k]-a[k]).slice(0,5).map((f,i)=>[f.file,'top'+(i+1)]));
   });
-  rows.forEach(f=>{
+  rows.forEach((f,idx)=>{
     const tr=document.createElement('tr');
+    tr.className=state.single&&state.single.file===f.file?'selectedRow':'';
     tr.innerHTML=`<td>${f.date}</td><td>${f.time}</td><td class="${rankMaps.launchAlt.get(f.file)||''}">${Math.round(f.launchAlt)}</td><td class="${rankMaps.maxAlt.get(f.file)||''}">${Math.round(f.maxAlt)}</td><td class="${rankMaps.gain.get(f.file)||''}">${fmtGain(f.gain)}</td><td class="${rankMaps.duration.get(f.file)||''}">${fmtTime(f.duration)}</td>`;
-    tr.onclick=()=>{state.single=f;state.focus=null;setActiveRecord(null);setMode('charts');fitView();renderAll();};
+    tr.onclick=()=>{state.tableScroll=$('tablePanel').scrollTop||0;state.single=f;state.focus=null;setActiveRecord(null);setDataMode('flight');fitView();renderAll();};
     tb.appendChild(tr);
   });
 }
@@ -143,7 +193,46 @@ function fitView(redraw=true){const a=flightsShown(), base=flightsBase(); const 
 function canvasSize(){const dpr=Math.max(1,window.devicePixelRatio||1), r=frame.getBoundingClientRect(); canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr)); canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};}
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function sx(t,w){return M.l+(t-state.x0)/(state.x1-state.x0)*(w-M.l-M.r);} function sy(y,h){return h-M.b-(y-state.y0)/(state.y1-state.y0)*(h-M.t-M.b);} function invx(px,w){return state.x0+(px-M.l)/(w-M.l-M.r)*(state.x1-state.x0);}
-function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); $('backBtn').classList.toggle('hidden',!state.single); $('chartLabel').textContent=state.single?`${state.single.date} ${state.single.time}`:'ALL FLIGHTS OVERLAY'; if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+function drawChart(){if(state.viewMode!=='charts')return; cancelAnimationFrame(state.raf); state.raf=requestAnimationFrame(()=>{const {w,h}=canvasSize(); ctx.clearRect(0,0,w,h); drawGrid(w,h); const a=flightsShown(); updateChartHeader(); if(!a.length){if(!state.loading){ctx.fillStyle=css('--muted');ctx.textAlign='center';ctx.font='900 12px system-ui';ctx.fillText('',w/2,h/2);}return;} ctx.save(); ctx.beginPath(); ctx.rect(M.l,M.t,w-M.l-M.r,h-M.t-M.b); ctx.clip(); a.forEach(f=>drawFlight(f,colorForFlight(f),w,h,!!state.single)); ctx.restore(); if(state.single) drawSingleMarkers(state.single,w,h); ctx.strokeStyle=css('--line2');ctx.lineWidth=1;ctx.strokeRect(M.l+.5,M.t+.5,w-M.l-M.r,h-M.t-M.b);});}
+function updateChartHeader(){
+  const single=!!state.single;
+  $('prevFlightBtn').classList.toggle('hidden',!single);
+  $('nextFlightBtn').classList.toggle('hidden',!single);
+  if(single){
+    const i=flightIndex();
+    $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
+    $('chartSub').textContent=`FLIGHT ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
+  }else{
+    $('chartLabel').textContent='ALL FLIGHTS';
+    $('chartSub').textContent='SESSION OVERLAY';
+  }
+}
+function drawSingleMarkers(f,w,h){
+  const pts=f.pts||[]; if(!pts.length)return;
+  const maxPt=pts.reduce((a,b)=>b.alt>a.alt?b:a,pts[0]);
+  const endPt=pts[pts.length-1];
+  const color=chartRecordColor();
+  ctx.save();
+  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=1;
+  [[maxPt,4.2],[endPt,3.8]].forEach(([p,r])=>{ctx.beginPath();ctx.arc(sx(p.t,w),sy(p.alt,h),r,0,Math.PI*2);ctx.fill();});
+  // subtle max altitude label
+  const mx=sx(maxPt.t,w), my=sy(maxPt.alt,h);
+  const label=`MAX ${Math.round(f.maxAlt)} m`;
+  ctx.font='800 9px ui-monospace,monospace';
+  const tw=ctx.measureText(label).width+12, th=20;
+  let lx=Math.min(Math.max(mx+8,M.l+4),w-M.r-tw-4), ly=Math.max(my-28,M.t+4);
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel').trim()||'#fff';
+  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line2').trim()||'#ddd';
+  roundRect(ctx,lx,ly,tw,th,6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label,lx+tw/2,ly+th/2);
+  // duration: small, quiet, along the bottom inside the plot
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#777';
+  ctx.globalAlpha=.72; ctx.textAlign='right'; ctx.font='800 9px ui-monospace,monospace';
+  ctx.fillText(`DUR ${fmtTime(f.duration)}`, w-M.r-6, h-M.b-10);
+  ctx.restore();
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
 
 function colorForFlight(f){
   if(state.single && f.file===state.single.file){
@@ -160,7 +249,7 @@ function colorForFlight(f){
 function drawGrid(w,h){const grid=css('--grid'), line=css('--line2'), muted=css('--muted'); ctx.fillStyle='transparent'; ctx.fillRect(0,0,w,h); ctx.font='800 11px system-ui'; ctx.textBaseline='middle'; ctx.lineWidth=1; const yt=ticks(0,state.y1,6), xt=ticks(state.x0,state.x1,5); ctx.strokeStyle=grid; ctx.fillStyle=muted; ctx.textAlign='right'; yt.forEach(v=>{const y=sy(v,h); crispLine(M.l,y,w-M.r,y); ctx.fillText(Math.round(v),M.l-7,y);}); ctx.textAlign='center'; xt.forEach(v=>{const x=sx(v,w); crispLine(x,M.t,x,h-M.b); ctx.fillText(Math.round(v),x,h-M.b+16);}); ctx.strokeStyle=line; crispLine(M.l,M.t,M.l,h-M.b); crispLine(M.l,h-M.b,w-M.r,h-M.b); drawAxisLabels(w,h,muted);}
 function drawAxisLabels(w,h,color){ctx.save();ctx.fillStyle=color;ctx.globalAlpha=.58;ctx.font='800 8px system-ui';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText('meters',M.l+4,M.t+8);ctx.textAlign='right';ctx.fillText('seconds',w-M.r-4,h-M.b-8);ctx.restore();}
 function crispLine(x1,y1,x2,y2){ctx.beginPath(); ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5); ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5); ctx.stroke();}
-function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; if(single){const last=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(sx(last.t,w),sy(last.alt,h),3.5,0,Math.PI*2); ctx.fill();}}
+function drawFlight(f,color,w,h,single){const pts=f.pts.filter(p=>p.t>=state.x0&&p.t<=state.x1); if(pts.length<2)return; ctx.beginPath(); pts.forEach((p,i)=>{const x=sx(p.t,w), y=sy(p.alt,h); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle=color; ctx.globalAlpha=single?1:.82; ctx.lineWidth=single?1.8:0.9; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); ctx.globalAlpha=1; }
 function ticks(a,b,n){const span=b-a;if(span<=0)return[a];const raw=span/n, mag=10**Math.floor(Math.log10(raw)), step=(raw/mag>=5?5:raw/mag>=2?2:1)*mag;const out=[];for(let v=Math.ceil(a/step)*step;v<=b+1e-6;v+=step)out.push(v);return out;}
 function point(e){const r=frame.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function pointerDown(e){

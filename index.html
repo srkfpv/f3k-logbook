@@ -64,17 +64,21 @@
     <section class="panel detailsPanel">
       <div class="detailsHead">
         <div class="sectionKicker">FLIGHTS DATA</div>
-        <div class="tabs">
-          <button id="chartsTab" class="tab active">CHART</button>
+        <div class="tabs dataTabs">
+          <button id="sessionTab" class="tab active">SESSION</button>
+          <button id="flightTab" class="tab">FLIGHT</button>
           <button id="tableTab" class="tab">TABLE</button>
         </div>
       </div>
 
       <section id="chartPanel" class="chartPanel">
         <div class="chartTop">
-          <button id="backBtn" class="chip hidden">OVERLAY</button>
-          <span id="chartLabel">ALL FLIGHTS OVERLAY</span>
-          <button id="fitBtn" class="fitBtn">FIT</button>
+          <button id="prevFlightBtn" class="flightNav hidden" type="button" aria-label="previous flight">‹</button>
+          <div class="chartTitle">
+            <span id="chartLabel">ALL FLIGHTS</span>
+            <small id="chartSub">SESSION OVERLAY</small>
+          </div>
+          <button id="nextFlightBtn" class="flightNav hidden" type="button" aria-label="next flight">›</button>
         </div>
         <div id="chartFrame" class="chartFrame">
           <canvas id="chartCanvas"></canvas>
@@ -84,7 +88,7 @@
 
       <section id="tablePanel" class="tablePanel hidden">
         <table>
-          <thead><tr><th>Date</th><th>Time</th><th class="sortable" data-k="launchAlt">Lnh</th><th class="sortable" data-k="maxAlt">Max</th><th class="sortable" data-k="gain">Gain</th><th class="sortable" data-k="duration">Dur</th></tr></thead>
+          <thead><tr><th class="sortable" data-k="datetime">Date</th><th class="sortable" data-k="time">Time</th><th class="sortable" data-k="launchAlt">Lnh</th><th class="sortable" data-k="maxAlt">Max</th><th class="sortable" data-k="gain">Gain</th><th class="sortable" data-k="duration">Dur</th></tr></thead>
           <tbody id="logRows"></tbody>
         </table>
       </section>
