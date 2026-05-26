@@ -1,4 +1,4 @@
-const APP_BUILD='39.0';
+const APP_BUILD='40.0';
 const LOGS_CACHE_BUST='f3k-v37-force-20260526-'+Date.now();
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
@@ -18,39 +18,48 @@ async function init(){
   showLoad(true);
   setBootProgress(0,1,'reading index');
   await loadLogs();
-  await ensureFlightsForCurrentRange('loading last session');
+  setBootProgress(8,100,'loading last session');
+  try{await ensureFlightsForCurrentRange('loading last session');}catch(e){console.warn(e);}
   showLoad(false);
   renderAll();
   setLogStatus(`ver. ${APP_BUILD} • logs: ${state.flights.filter(f=>f.loaded).length}/${state.flights.length} loaded`);
-  hideBootLoader();
+  setBootProgress(100,100,'ready');
+  setTimeout(hideBootLoader,220);
   requestAnimationFrame(drawChart);
 }
 function loadTheme(){const saved=localStorage.getItem('f3kTheme');document.documentElement.classList.toggle('light',saved?saved==='light':true);$('themeBtn').textContent=document.documentElement.classList.contains('light')?'☾':'☼';}
 
+
 function setBootProgress(done,total,label='loading logs'){
-  const wrap=document.getElementById('bootLoader');
   const pctEl=document.getElementById('bootPct');
   const labelEl=document.getElementById('bootLabel');
   const bar=document.getElementById('bootBar');
-  if(total<=0){ if(pctEl)pctEl.textContent='0%'; if(labelEl)labelEl.textContent=label; if(bar)bar.style.width='0%'; return; }
-  const pct=Math.max(0,Math.min(100,Math.round((done/total)*100)));
+  const plane=document.getElementById('bootPlane');
+  let pct=0;
+  if(total>0){
+    pct=Math.max(0,Math.min(100,Math.round((done/total)*100)));
+  }else if(done>0){
+    pct=Math.max(0,Math.min(100,Math.round(done)));
+  }
   if(pctEl)pctEl.textContent=pct+'%';
   if(labelEl)labelEl.textContent=label;
   if(bar)bar.style.width=pct+'%';
+  if(plane)plane.style.left=pct+'%';
 }
 function hideBootLoader(){
   const wrap=document.getElementById('bootLoader');
-  if(wrap){ wrap.classList.add('hidden'); setTimeout(()=>wrap.remove(),380); }
+  if(wrap){ wrap.classList.add('hidden'); setTimeout(()=>wrap.remove(),360); }
 }
+
 
   const el=document.getElementById('logStatus');
   if(!el) return;
   if(total<=0){
-    el.textContent='ver. 39.0 • loading logs…';
+    el.textContent='ver. 40.0 • loading logs…';
     return;
   }
   const pct=Math.round((done/total)*100);
-  el.textContent=`ver. 39.0 • loading ${pct}%`;
+  el.textContent=`ver. 40.0 • loading ${pct}%`;
 }
 
 function showLoad(v){
@@ -161,18 +170,18 @@ async function ensureFlightsLoaded(list,label='loading logs'){
     .map(file=>state.flights.find(f=>f.file===file))
     .filter(Boolean);
   const total=need.length;
-  if(!total) return;
+  if(!total){ setBootProgress(100,100,'ready'); return; }
   state.loading=true;
   state.loadTotal=total;
   state.loadDone=0;
-  setBootProgress(0,total,label);
+  setBootProgress(10,100,label);
   updateLoadProgress(0,total);
   const batch=4;
   for(let i=0;i<need.length;i+=batch){
     await Promise.all(need.slice(i,i+batch).map(async f=>{
       await loadFlightFile(f);
       state.loadDone++;
-      setBootProgress(state.loadDone,total,label);
+      setBootProgress(10 + Math.round((state.loadDone/Math.max(1,total))*88),100,label);
       updateLoadProgress(state.loadDone,total);
     }));
   }
