@@ -361,3 +361,9 @@ footer,
   margin-bottom:0 !important;
   padding-bottom:0 !important;
 }
+
+
+/* v38 */
+.logStatus{
+  opacity:.72 !important;
+}
