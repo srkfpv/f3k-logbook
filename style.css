@@ -369,3 +369,21 @@ footer,
 }
 
 /* v39.1: blur loader removed, chart animation fragments removed */
+
+/* v46 Top 10 lightweight mode */
+.datePanel{display:none!important;}
+.recordGrid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;}
+.recordCard span{white-space:nowrap;}
+.tablePanel{height:auto !important;min-height:0 !important;max-height:none !important;overflow:visible !important;}
+.tablePanel::after{display:none!important;}
+.tablePanel table{table-layout:fixed;width:100%;}
+.tablePanel th,.tablePanel td{text-align:center;}
+.tablePanel th{cursor:default !important;}
+.rankDot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;opacity:.95;}
+.rank1 .rankDot{background:#C9A227;}
+.rank2 .rankDot{background:#A8A8A8;}
+.rank3 .rankDot{background:#B07A3A;}
+.rank1 td:first-child{font-weight:760;}
+.rank2 td:first-child,.rank3 td:first-child{font-weight:700;}
+#flightTab{display:none!important;}
+.dataTabs{grid-template-columns:repeat(2,1fr) !important;}
