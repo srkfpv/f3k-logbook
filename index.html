@@ -24,7 +24,7 @@
     </header>
 
     <section class="panel datePanel">
-      <div class="sectionKicker">SELECTED PERIOD</div>
+      <div class="sectionKicker">SELECT</div>
       <button id="dateToggle" class="panelHead" type="button">
         <span><em id="dateLabel">LAST SESSION</em></span>
         <i id="dateChevron">▾</i>
@@ -50,8 +50,8 @@
     <section class="panel summaryPanel">
       <div class="sectionKicker">SUMMARY</div>
       <div class="infoLine" id="infoLine">
-        <div><span>FLIGHTS</span><b id="mFlights">0</b></div>
-        <div><span>TOTAL TIME</span><b id="mTime">00:00:00</b></div>
+        <div><span>SINGLES</span><b id="mFlights">0</b></div>
+        <div><span>TOTAL AIR TIME</span><b id="mTime">00:00:00</b></div>
       </div>
       <div class="recordGrid" id="recordGrid">
         <button class="recordCard" data-focus="maxAlt"><span>MAX ALT</span><b id="mMaxAlt">0 m</b></button>
@@ -63,10 +63,10 @@
 
     <section class="panel detailsPanel">
       <div class="detailsHead">
-        <div class="sectionKicker">FLIGHTS DATA</div>
+        <div class="sectionKicker">SINGLES DATA</div>
         <div class="tabs dataTabs">
           <button id="sessionTab" class="tab active">OVERLAY</button>
-          <button id="flightTab" class="tab">FLIGHT</button>
+          <button id="flightTab" class="tab">SINGLE</button>
           <button id="tableTab" class="tab">TABLE</button>
         </div>
       </div>
@@ -75,7 +75,7 @@
         <div class="chartTop">
           <button id="prevFlightBtn" class="flightNav hidden" type="button" aria-label="previous flight">‹</button>
           <div class="chartTitle">
-            <span id="chartLabel">ALL FLIGHTS</span>
+            <span id="chartLabel">ALL SINGLES</span>
             <small id="chartSub">SESSION OVERLAY</small>
           </div>
           <button id="nextFlightBtn" class="flightNav hidden" type="button" aria-label="next flight">›</button>
@@ -95,7 +95,7 @@
       </section>
     </section>
 
-    <footer class="footer"><a href="upload.html">IMPORT LOGS</a><span>F3K LOGBOOK by SRK.FPV</span><em>ver. 26.0</em></footer>
+    <footer class="footer"><a href="upload.html">IMPORT LOGS</a><span>F3K LOGBOOK by SRK.FPV</span><em>ver. 27.0</em></footer>
   </main>
   <script src="app.js"></script>
 </body>

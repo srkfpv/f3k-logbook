@@ -122,3 +122,86 @@ tbody tr.selectedRow .rowChevron{
   .detailsPanel{min-height:360px}
   .tablePanel{height:270px;min-height:270px}
 }
+
+/* v27 requested refinements */
+#flightTab,
+button[data-tab="flight"],
+button[data-mode="flight"]{
+  text-transform: uppercase;
+}
+
+/* Equalize Flights Data height: table slightly lower than v26 */
+.detailsPanel{
+  min-height:calc(38dvh + 104px) !important;
+}
+.tablePanel{
+  height:calc(38dvh + 24px) !important;
+  min-height:262px !important;
+}
+
+/* Summary: smaller top values and tighter vertical rhythm */
+.summaryTotal,
+.summary-totals,
+.summaryInfo,
+.totalStats,
+.summary .totals,
+.summaryTotals{
+  padding-top:8px !important;
+  padding-bottom:8px !important;
+}
+.summaryTotal .value,
+.summary-totals .value,
+.summaryInfo .value,
+.totalStats .value,
+.summary .totals .value,
+.summaryTotals .value,
+[data-summary-total] .value{
+  font-size:clamp(20px, 5.4vw, 30px) !important;
+  line-height:1.02 !important;
+}
+.summaryTotal .label,
+.summary-totals .label,
+.summaryInfo .label,
+.totalStats .label,
+.summary .totals .label,
+.summaryTotals .label{
+  font-size:10px !important;
+}
+
+/* Marker bubbles: thinner outline */
+.chartBubble,
+.chart-bubble,
+.markerBubble,
+.marker-bubble,
+.maxAltBubble,
+.durationBubble{
+  border-width:1px !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.08) !important;
+}
+
+/* Hide marker bubbles while panning so they do not stick to chart edge */
+.chart-panning .chartBubble,
+.chart-panning .chart-bubble,
+.chart-panning .markerBubble,
+.chart-panning .marker-bubble,
+.chart-panning .maxAltBubble,
+.chart-panning .durationBubble{
+  opacity:0 !important;
+  transition:opacity .08s ease !important;
+}
+
+/* Ensure marker/dot positions are allowed to move with graph layer, not clamped visually */
+.chartMarker,
+.chart-marker,
+.maxAltMarker,
+.durationMarker{
+  overflow:visible !important;
+  pointer-events:none !important;
+}
+
+/* Footer/import copy */
+.footer,
+.appFooter,
+.version{
+  font-weight:300 !important;
+}

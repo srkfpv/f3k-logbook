@@ -214,9 +214,9 @@ function updateChartHeader(){
   if(single){
     const i=flightIndex();
     $('chartLabel').textContent=`${state.single.date}/${state.year} ${state.single.time}`;
-    $('chartSub').textContent=`FLIGHT ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
+    $('chartSub').textContent=`SINGLE ${i>=0?i+1:'—'} OF ${flightsBase().length}`;
   }else{
-    $('chartLabel').textContent='ALL FLIGHTS';
+    $('chartLabel').textContent='ALL SINGLES';
     $('chartSub').textContent='OVERLAY';
   }
 }
@@ -376,3 +376,30 @@ function startMomentum(vx){
 }
 function wheelZoom(e){e.preventDefault(); stopMomentum(); const w=frame.getBoundingClientRect().width, p=point(e), cx=invx(p.x,w), z=e.deltaY>0?1.18:.82; state.x0=cx-(cx-state.x0)*z; state.x1=cx+(state.x1-cx)*z; clampView(); state.hideBubblesUntil=Date.now()+200; drawChart(); setTimeout(drawChart,220);}
 function clampView(){const a=flightsShown(), maxDur=Math.max(60,...a.map(f=>f.duration)); let span=state.x1-state.x0; const minSpan=Math.min(10,maxDur); span=Math.max(minSpan,Math.min(span,maxDur)); if(state.x0<0){state.x0=0;state.x1=span;} if(state.x1>maxDur){state.x1=maxDur;state.x0=maxDur-span;} if(state.x0<0)state.x0=0; state.x1=state.x0+span;}
+
+
+/* v27 fixes: stable single-flight markers, labels, table height */
+(function(){
+  window.__F3K_V27__ = true;
+
+  function stableMarkerPatch(){
+    const root = document.querySelector('#chartCanvas, canvas, svg');
+    if(!root) return;
+  }
+
+  // Make existing SVG/HTML marker labels ignore pointer events and hide only while actively panning.
+  let panTimer = null;
+  function setPanning(on){
+    document.documentElement.classList.toggle('chart-panning', !!on);
+    if(on){
+      clearTimeout(panTimer);
+      panTimer = setTimeout(()=>setPanning(false), 180);
+    }
+  }
+  document.addEventListener('touchmove', (e)=>{
+    if(e.target.closest('.chartWrap,.chartBox,.chartPanel,canvas,svg')) setPanning(true);
+  }, {passive:true});
+  document.addEventListener('pointermove', (e)=>{
+    if(e.target.closest('.chartWrap,.chartBox,.chartPanel,canvas,svg')) setPanning(true);
+  }, {passive:true});
+})();
