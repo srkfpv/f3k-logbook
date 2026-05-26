@@ -1,7 +1,7 @@
 
-const APP_BUILD = '50.0';
+const APP_BUILD = '51.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v50-' + Date.now();
+const CACHE_BUST = 'v51-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -31,7 +31,9 @@ if ('serviceWorker' in navigator) {
 
 async function fetchTextAny(urls){
   let lastErr=null;
-  for(const url of urls){
+  for(const raw of urls){
+    const url=String(raw||'').replace(/^\/+/, '');
+    if(!url) continue;
     try{
       const r=await fetch(bustUrl(url),{cache:'no-store'});
       if(r.ok) return await r.text();
@@ -41,9 +43,7 @@ async function fetchTextAny(urls){
   throw lastErr || new Error('fetch failed');
 }
 function normalizeFlightPath(file){
-  const f=String(file||'').trim();
-  if(!f) return '';
-  return f.replace(/^\.\//,'');
+  return String(file||'').trim().replace(/^\.?\//,'');
 }
 function flightUrlCandidates(file){
   const f=normalizeFlightPath(file);
@@ -51,13 +51,24 @@ function flightUrlCandidates(file){
   const out=[];
   if(f.includes('/')) out.push(f);
   out.push(LOG_DIR+f);
-  if(base && base!==f) out.push(LOG_DIR+base);
+  if(base) out.push(LOG_DIR+base);
   if(base) out.push(base);
-  return [...new Set(out)];
+  return [...new Set(out.filter(Boolean))];
+}
+function splitCsvLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){q=!q; continue;}
+    if(ch===',' && !q){out.push(cur.trim()); cur=''; continue;}
+    cur+=ch;
+  }
+  out.push(cur.trim());
+  return out;
 }
 function parseIndexRows(txt){
   return (txt||'').trim().split(/\r?\n/)
-    .map(l=>l.split(',').map(x=>x.trim()))
+    .map(l=>splitCsvLine(l))
     .filter(r=>r.length>=6)
     .filter(r=>{
       const joined=r.join(',').toLowerCase();
@@ -65,6 +76,7 @@ function parseIndexRows(txt){
       return r.some(x=>/\.csv$/i.test(x));
     });
 }
+
 function bustUrl(url){
   const sep = url.includes('?') ? '&' : '?';
   return url + sep + 'cb=' + encodeURIComponent(CACHE_BUST);
@@ -110,6 +122,20 @@ function chartFlights(){
 }
 function sessionsCount(){ return new Set(state.flights.map(f=>f.date)).size; }
 function flightsShown(){let a=chartFlights(); if(state.single) a=a.filter(f=>f.file===state.single.file); return a;}
+async function loadFlightFile(f){
+  if(!f || f.loaded) return f;
+  try{
+    const csv=await fetchTextAny(flightUrlCandidates(f.file));
+    const pts=parseCsv(csv);
+    f.pts=pts;
+    f.loaded=pts.length>0;
+  }catch(e){
+    console.warn('missing log', f && f.file, e);
+    f.pts=[];
+    f.loaded=false;
+  }
+  return f;
+}
 async function ensureFlightsLoaded(list){
   const need = [...new Set((list||[]).filter(f=>f && !f.loaded).map(f=>f.file))]
     .map(file => state.flights.find(f=>f.file===file))
@@ -122,38 +148,37 @@ async function loadRepoLogs(){
   setLogStatus(`ver. ${APP_BUILD} • logs: loading index`);
   const txt = await fetchTextAny([LOG_DIR + 'index.csv', 'index.csv']);
   const rows = parseIndexRows(txt);
-  const out = [];
+  const out=[];
 
   for(const r of rows){
-    const fileIdx = r.findIndex(x=>/\.csv$/i.test(x));
-    const file = fileIdx >= 0 ? r[fileIdx] : r[5];
-    const vals = r.filter((_,i)=>i!==fileIdx);
+    try{
+      const fileIdx = r.findIndex(x=>/\.csv$/i.test(x));
+      const file = fileIdx>=0 ? r[fileIdx] : r[5];
+      const vals = fileIdx>=0 ? r.filter((_,i)=>i!==fileIdx) : r.slice(0,5);
 
-    // Exact index.csv format:
-    // date, time, launch/LNH, max altitude, duration seconds, file
-    const date = vals[0];
-    const time = vals[1];
-    const launch = Number(vals[2]);
-    const maxAlt = Number(vals[3]);
-    const duration = Number(vals[4]);
+      const date = vals[0];
+      const time = vals[1];
+      const launch = Number(String(vals[2]).replace(',', '.'));
+      const maxAlt = Number(String(vals[3]).replace(',', '.'));
+      const duration = Number(String(vals[4]).replace(',', '.'));
 
-    if(!date || !time || !file || !Number.isFinite(duration)) continue;
+      if(!date || !time || !file || !Number.isFinite(duration)) continue;
 
-    const lnh = Number.isFinite(launch) ? launch : 0;
-    const alt = Number.isFinite(maxAlt) ? maxAlt : lnh;
+      const lnh = Number.isFinite(launch) ? launch : 0;
+      const alt = Number.isFinite(maxAlt) ? maxAlt : lnh;
 
-    out.push({
-      date,
-      time,
-      year: yearFromFile(file),
-      file: normalizeFlightPath(file),
-      launchAlt: lnh,
-      maxAlt: alt,
-      duration,
-      gain: alt - lnh,
-      pts: [],
-      loaded: false
-    });
+      out.push({
+        date, time, year: yearFromFile(file), file: normalizeFlightPath(file),
+        launchAlt: lnh,
+        maxAlt: alt,
+        duration,
+        gain: alt-lnh,
+        pts: [],
+        loaded: false
+      });
+    }catch(e){
+      console.warn('bad index row', r, e);
+    }
   }
 
   state.flights = out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));
@@ -170,7 +195,7 @@ async function init(){
   }catch(e){
     console.warn(e);
     state.flights = [];
-    setLogStatus(`ver. ${APP_BUILD} • logs: error`);
+    setLogStatus(`ver. ${APP_BUILD} • index load error`);
   }
   showLoad(false);
   setDataMode('session');

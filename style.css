@@ -499,3 +499,5 @@ footer,
 .chartTitle small:empty{
   display:none;
 }
+
+/* v51 robust log load */
