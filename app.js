@@ -1,5 +1,5 @@
-const APP_BUILD='40.0';
-const LOGS_CACHE_BUST='f3k-v37-force-20260526-'+Date.now();
+const APP_BUILD='41.0';
+const LOGS_CACHE_BUST='f3k-v41-loader-'+Date.now();
 const $=id=>document.getElementById(id);
 const canvas=$('chartCanvas'), frame=$('chartFrame'), ctx=canvas.getContext('2d');
 const state={flights:[],allTime:false,rangeMode:'last',selDates:new Set(),rangeStart:null,rangeEnd:null,openDate:false,openMonth:5,year:2026,viewMode:'charts',dataMode:'session',single:null,focus:null,sortKey:'datetime',sortDir:-1,tableScroll:0,x0:0,x1:120,y0:0,y1:80,fitX0:0,fitX1:120,fitY0:0,fitY1:80,pointers:new Map(),drag:null,pinch:null,momentum:null,hideBubblesUntil:0,raf:0,loading:false,indexRows:[],loadedFiles:new Set(),loadingFiles:new Set(),loadTotal:0,loadDone:0,bootOverlay:true};
@@ -51,16 +51,14 @@ function hideBootLoader(){
   if(wrap){ wrap.classList.add('hidden'); setTimeout(()=>wrap.remove(),360); }
 }
 
-
+function updateLoadProgress(done,total,label='loading logs'){
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done/total)*100))) : 0;
   const el=document.getElementById('logStatus');
-  if(!el) return;
-  if(total<=0){
-    el.textContent='ver. 40.0 • loading logs…';
-    return;
-  }
-  const pct=Math.round((done/total)*100);
-  el.textContent=`ver. 40.0 • loading ${pct}%`;
+  if(el) el.textContent=`ver. ${APP_BUILD} • loading ${pct}%`;
+  setBootProgress(pct,100,label);
 }
+
+
 
 function showLoad(v){
 state.loading=v;$('loader').classList.toggle('hidden',!v);}
@@ -170,19 +168,19 @@ async function ensureFlightsLoaded(list,label='loading logs'){
     .map(file=>state.flights.find(f=>f.file===file))
     .filter(Boolean);
   const total=need.length;
-  if(!total){ setBootProgress(100,100,'ready'); return; }
+  if(!total){ updateLoadProgress(1,1,'ready'); return; }
   state.loading=true;
   state.loadTotal=total;
   state.loadDone=0;
   setBootProgress(10,100,label);
-  updateLoadProgress(0,total);
+  updateLoadProgress(0,total,label);
   const batch=4;
   for(let i=0;i<need.length;i+=batch){
     await Promise.all(need.slice(i,i+batch).map(async f=>{
       await loadFlightFile(f);
       state.loadDone++;
       setBootProgress(10 + Math.round((state.loadDone/Math.max(1,total))*88),100,label);
-      updateLoadProgress(state.loadDone,total);
+      updateLoadProgress(state.loadDone,total,label);
     }));
   }
   state.loading=false;
