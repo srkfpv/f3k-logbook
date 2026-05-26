@@ -641,3 +641,33 @@ footer,
 .timeCell{
   color:var(--muted) !important;
 }
+
+/* v54 three requested fixes */
+.chartTop.overlayHidden{
+  display:none !important;
+  height:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+.chartPanel{
+  padding-top:0 !important;
+}
+.dataTabs{
+  margin-bottom:14px !important;
+}
+.tablePanel table{
+  border-collapse:separate !important;
+  border-spacing:0 !important;
+  overflow:hidden;
+  border-radius:22px 22px 0 0;
+}
+.tablePanel thead th:first-child{
+  border-top-left-radius:22px !important;
+}
+.tablePanel thead th:last-child{
+  border-top-right-radius:22px !important;
+}
+.tablePanel thead th{
+  overflow:hidden;
+}

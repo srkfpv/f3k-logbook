@@ -1,7 +1,7 @@
 
-const APP_BUILD = '53.0';
+const APP_BUILD = '54.0';
 const LOG_DIR = 'logs/';
-const CACHE_BUST = 'v53-' + Date.now();
+const CACHE_BUST = 'v54-' + Date.now();
 
 const $ = id => document.getElementById(id);
 const canvas = $('chartCanvas');
@@ -234,14 +234,22 @@ function loadTheme(){
 
 function setDataMode(m){
   state.dataMode = m;
+
   if(m==='session'){
     state.single = null;
     state.focus = null;
     setActiveRecord(null);
   }
-  if(m==='flight' && !state.single){
-    state.single = best(state.flights,'duration') || state.flights[0] || null;
-    if(state.single && !state.single.loaded) ensureFlightsLoaded([state.single]).then(()=>drawChart());
+
+  if(m==='flight'){
+    if(!state.single){
+      state.single = top10Flights()[0] || null;
+      state.focus = null;
+      setActiveRecord(null);
+    }
+    if(state.single && !state.single.loaded){
+      ensureFlightsLoaded([state.single]).then(()=>{fitView(false);renderSummary();renderTable();drawChart();});
+    }
   }
 
   $('sessionTab').classList.toggle('active', m==='session');
@@ -252,9 +260,9 @@ function setDataMode(m){
   $('tablePanel').classList.toggle('hidden', m!=='table');
 
   fitView(false);
-  drawChart();
   renderSummary();
   renderTable();
+  drawChart();
 }
 function setActiveRecord(k){
   document.querySelectorAll('.recordCard').forEach(b => b.classList.toggle('active', b.dataset.focus===k));
@@ -347,6 +355,8 @@ function updateFitButton(){
 }
 function updateChartHeader(){
   const single=!!state.single;
+  const top=document.querySelector('.chartTop');
+  if(top) top.classList.toggle('overlayHidden', !single);
   $('prevFlightBtn').classList.toggle('hidden',!single);
   $('nextFlightBtn').classList.toggle('hidden',!single);
   if(single){
