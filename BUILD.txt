@@ -1,0 +1,3 @@
+F3K LOGBOOK build 37.0
+Force refresh token: f3k-v37-force-20260526
+Upload page removed.

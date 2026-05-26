@@ -335,18 +335,29 @@ footer,
   padding-bottom:0 !important;
 }
 
-/* v36 cache/status */
-.logStatus{
+/* v37 force refresh / footer cleanup */
+.footer a[href*="upload"],
+.appFooter a[href*="upload"],
+a[href="upload.html"] {
+  display:none !important;
+}
+.logStatus {
   text-align:center;
-  font-size:9px;
+  font-size:9px !important;
   line-height:1.2;
   font-weight:300;
   letter-spacing:.04em;
   color:var(--muted);
-  opacity:.58;
-  margin-top:2px;
+  opacity:.62 !important;
+  margin-top:1px;
   margin-bottom:0;
 }
-.version + .logStatus{
-  margin-top:1px;
+.app {
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 4px) !important;
+}
+footer,
+.footer,
+.appFooter {
+  margin-bottom:0 !important;
+  padding-bottom:0 !important;
 }
