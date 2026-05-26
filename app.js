@@ -1,5 +1,5 @@
 
-const APP_BUILD = '48.0';
+const APP_BUILD = '49.0';
 const LOG_DIR = 'logs/';
 const CACHE_BUST = 'v46-' + Date.now();
 
@@ -29,6 +29,42 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 }
 
+async function fetchTextAny(urls){
+  let lastErr=null;
+  for(const url of urls){
+    try{
+      const r=await fetch(bustUrl(url),{cache:'no-store'});
+      if(r.ok) return await r.text();
+      lastErr=new Error(url+' HTTP '+r.status);
+    }catch(e){lastErr=e;}
+  }
+  throw lastErr || new Error('fetch failed');
+}
+function normalizeFlightPath(file){
+  const f=String(file||'').trim();
+  if(!f) return '';
+  return f.replace(/^\.\//,'');
+}
+function flightUrlCandidates(file){
+  const f=normalizeFlightPath(file);
+  const base=f.split('/').pop();
+  const out=[];
+  if(f.includes('/')) out.push(f);
+  out.push(LOG_DIR+f);
+  if(base && base!==f) out.push(LOG_DIR+base);
+  if(base) out.push(base);
+  return [...new Set(out)];
+}
+function parseIndexRows(txt){
+  return (txt||'').trim().split(/\r?\n/)
+    .map(l=>l.split(',').map(x=>x.trim()))
+    .filter(r=>r.length>=6)
+    .filter(r=>{
+      const joined=r.join(',').toLowerCase();
+      if(joined.includes('date') && joined.includes('time')) return false;
+      return r.some(x=>/\.csv$/i.test(x));
+    });
+}
 function bustUrl(url){
   const sep = url.includes('?') ? '&' : '?';
   return url + sep + 'cb=' + encodeURIComponent(CACHE_BUST);
@@ -83,35 +119,38 @@ async function ensureFlightsLoaded(list){
 }
 
 async function loadRepoLogs(){
-  const txt = await fetch(bustUrl(LOG_DIR + 'index.csv'), { cache:'no-store' })
-    .then(r => { if(!r.ok) throw Error('index.csv'); return r.text(); });
+  setLogStatus(`ver. ${APP_BUILD} • logs: loading index`);
+  const txt = await fetchTextAny([LOG_DIR + 'index.csv', 'index.csv']);
 
-  const rows = txt.trim().split(/\r?\n/)
-    .filter(Boolean)
-    .map(l => l.split(',').map(x => x.trim()))
-    .filter(r => r.length >= 6);
-
-  state.flights = rows.map(r => {
-    const [date,time,lnh,maxAlt,duration,file] = r;
-    const yr = yearFromFile(file);
-    const rawLnh=+lnh, rawMax=+maxAlt;
-    const fixedLaunch = rawLnh > rawMax ? rawMax : rawLnh;
-    const fixedMax = rawLnh > rawMax ? rawLnh : rawMax;
-    return {
-      date,time,year:yr,file,
+  const rows = parseIndexRows(txt);
+  const out=[];
+  for(const r of rows){
+    // expected: date,time,launch,maxAlt,duration,file
+    // tolerate file column elsewhere by finding .csv cell
+    const fileIdx = r.findIndex(x=>/\.csv$/i.test(x));
+    const file = fileIdx >= 0 ? r[fileIdx] : r[5];
+    const vals = r.filter((_,i)=>i!==fileIdx);
+    const date=vals[0], time=vals[1], lnh=vals[2], maxAlt=vals[3], duration=vals[4];
+    const rawLnh=Number(lnh), rawMax=Number(maxAlt), rawDur=Number(duration);
+    if(!date || !time || !file || !Number.isFinite(rawDur)) continue;
+    const fixedLaunch = Number.isFinite(rawLnh)&&Number.isFinite(rawMax) ? (rawLnh > rawMax ? rawMax : rawLnh) : (Number.isFinite(rawLnh)?rawLnh:0);
+    const fixedMax = Number.isFinite(rawLnh)&&Number.isFinite(rawMax) ? (rawLnh > rawMax ? rawLnh : rawMax) : (Number.isFinite(rawMax)?rawMax:0);
+    out.push({
+      date,time,year:yearFromFile(file),file:normalizeFlightPath(file),
       launchAlt:fixedLaunch,
       maxAlt:fixedMax,
-      duration:+duration,
+      duration:rawDur,
       gain:fixedMax-fixedLaunch,
       pts:[],
       loaded:false
-    };
-  }).sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));
+    });
+  }
 
+  state.flights = out.sort((a,b)=>(a.year*10000+dateNum(a.date)+timeNum(a.time))-(b.year*10000+dateNum(b.date)+timeNum(b.time)));
   state.year = 2026;
+  setLogStatus(`ver. ${APP_BUILD} • logs: index ${state.flights.length}`);
   await ensureFlightsLoaded(chartFlights());
 }
-
 async function init(){
   bindUI();
   loadTheme();
@@ -121,6 +160,7 @@ async function init(){
   }catch(e){
     console.warn(e);
     state.flights = [];
+    setLogStatus(`ver. ${APP_BUILD} • logs: error`);
   }
   showLoad(false);
   setDataMode('session');
@@ -177,7 +217,9 @@ function setDataMode(m){
   $('tablePanel').classList.toggle('hidden', m!=='table');
 
   fitView(false);
-  renderAll();
+  drawChart();
+  renderSummary();
+  renderTable();
 }
 function setActiveRecord(k){
   document.querySelectorAll('.recordCard').forEach(b => b.classList.toggle('active', b.dataset.focus===k));

@@ -439,3 +439,20 @@ footer,
 .chartTitle small:empty{
   display:none;
 }
+
+/* v49 load/status fix */
+.footer{
+  gap:6px;
+  flex-wrap:wrap;
+}
+.logStatus{
+  display:block;
+  width:100%;
+  text-align:center;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:300;
+  letter-spacing:.04em;
+  color:var(--muted);
+  opacity:.62;
+}
