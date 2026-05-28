@@ -26,7 +26,7 @@
 
 .footer{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:500;letter-spacing:.02em;opacity:.7;padding-bottom:calc(18px + env(safe-area-inset-bottom));}
 .footer a{color:var(--accent);text-decoration:none;font-size:10px;font-weight:700;letter-spacing:.12em;}
-.footer span{font-size:11px;font-weight:500;}
+.footer span{font-size:10px;font-weight:500;}
 .footer em{font-style:normal;font-size:10px;font-weight:300;opacity:.55;}
 
 /* v21 date selector rebuild */
@@ -793,3 +793,30 @@ footer,
 .detailsPanel .tablePanel{
   min-height:0 !important;
 }
+
+/* v58.2 lock TOP 10 details to the TABLE reference height */
+.detailsPanel{
+  min-height:467px !important;
+}
+.detailsPanel #chartPanel,
+.detailsPanel .tablePanel{
+  height:361px !important;
+  min-height:361px !important;
+  max-height:361px !important;
+}
+.detailsPanel .chartFrame{
+  height:361px !important;
+  min-height:361px !important;
+  max-height:361px !important;
+}
+.detailsPanel .chartTop:not(.overlayHidden) + .chartFrame{
+  height:325px !important;
+  min-height:325px !important;
+  max-height:325px !important;
+}
+.detailsPanel .tablePanel{
+  overflow:hidden !important;
+}
+
+/* v59 footer version */
+.footer span{font-size:10px !important;}
