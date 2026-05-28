@@ -794,29 +794,29 @@ footer,
   min-height:0 !important;
 }
 
-/* v58.2 lock TOP 10 details to the TABLE reference height */
+/* v60 TOP 10 fixed equal height with full 10-row TABLE visibility */
 .detailsPanel{
-  min-height:467px !important;
+  min-height:503px !important;
 }
 .detailsPanel #chartPanel,
 .detailsPanel .tablePanel{
-  height:361px !important;
-  min-height:361px !important;
-  max-height:361px !important;
+  height:397px !important;
+  min-height:397px !important;
+  max-height:397px !important;
 }
 .detailsPanel .chartFrame{
+  height:397px !important;
+  min-height:397px !important;
+  max-height:397px !important;
+}
+.detailsPanel .chartTop:not(.overlayHidden) + .chartFrame{
   height:361px !important;
   min-height:361px !important;
   max-height:361px !important;
-}
-.detailsPanel .chartTop:not(.overlayHidden) + .chartFrame{
-  height:325px !important;
-  min-height:325px !important;
-  max-height:325px !important;
 }
 .detailsPanel .tablePanel{
   overflow:hidden !important;
 }
 
-/* v59 footer version */
+/* v60 footer version */
 .footer span{font-size:10px !important;}
