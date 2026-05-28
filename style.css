@@ -820,3 +820,27 @@ footer,
 
 /* v60 footer version */
 .footer span{font-size:10px !important;}
+
+/* v60.1 balanced TOP 10 table height: full row 10, no extra empty bottom */
+.detailsPanel{
+  min-height:485px !important;
+}
+.detailsPanel #chartPanel,
+.detailsPanel .tablePanel{
+  height:379px !important;
+  min-height:379px !important;
+  max-height:379px !important;
+}
+.detailsPanel .chartFrame{
+  height:379px !important;
+  min-height:379px !important;
+  max-height:379px !important;
+}
+.detailsPanel .chartTop:not(.overlayHidden) + .chartFrame{
+  height:343px !important;
+  min-height:343px !important;
+  max-height:343px !important;
+}
+.detailsPanel .tablePanel{
+  overflow:hidden !important;
+}
