@@ -8,7 +8,7 @@ const canvas = $('chartCanvas');
 const frame = $('chartFrame');
 const ctx = canvas.getContext('2d');
 
-const M = { l: 46, r: 14, t: 18, b: 34 };
+const M = { l: 34, r: 14, t: 18, b: 34 };
 const state = {
   flights: [],
   dataMode: 'session',
