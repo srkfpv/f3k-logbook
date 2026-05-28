@@ -774,3 +774,22 @@ footer,
   stroke:var(--accent) !important;
   fill:var(--accent) !important;
 }
+
+/* v58.1 fixed TOP 10 details height: table view is the reference */
+.detailsPanel{
+  min-height:0 !important;
+}
+.detailsPanel #chartPanel{
+  height:361px !important;
+}
+.detailsPanel .chartFrame{
+  height:361px !important;
+  min-height:0 !important;
+}
+.detailsPanel .chartTop:not(.overlayHidden) + .chartFrame{
+  height:325px !important;
+  min-height:0 !important;
+}
+.detailsPanel .tablePanel{
+  min-height:0 !important;
+}
